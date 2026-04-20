@@ -2,26 +2,30 @@
 security.py - Password hashing aur JWT token utilities
 
 Functions:
-  - hash_password(plain)      → hashed string
+  - hash_password(plain)           → hashed string
   - verify_password(plain, hashed) → bool
-  - create_access_token(data) → JWT string
-  - decode_access_token(token) → payload dict
+  - create_access_token(data)      → JWT string
+  - decode_access_token(token)     → payload dict
 """
 
-from passlib.context import CryptContext
+import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _to_bytes(password: str) -> bytes:
+    """Password ko UTF-8 bytes me convert karo, 72 bytes tak truncate karo."""
+    return password.encode("utf-8")[:72]
 
 
 def hash_password(plain_password: str) -> str:
-    return pwd_context.hash(plain_password)
+    hashed = bcrypt.hashpw(_to_bytes(plain_password), bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(_to_bytes(plain_password), hashed_password.encode("utf-8"))
 
 
 def create_access_token(data: dict) -> str:

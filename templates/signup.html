@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up{% endblock %}
+
+{% block body %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+
+    <!-- Logo -->
+    <div class="text-center mb-4">
+      <div class="auth-logo mb-1">
+        <i class="bi bi-shield-lock-fill"></i> AuthZen
+      </div>
+      <p class="text-secondary" style="font-size:0.85rem;">Create your IAM account</p>
+    </div>
+
+    <!-- Flash Messages -->
+    {% if error %}
+    <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="alert alert-success d-flex align-items-center gap-2" role="alert">
+      <i class="bi bi-check-circle-fill"></i>
+      <span>{{ success }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Signup Form -->
+    <form method="POST" action="/signup" autocomplete="off">
+
+      <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-person"></i></span>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            class="form-control"
+            placeholder="john_doe"
+            value="{{ form_data.username if form_data else '' }}"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label for="email" class="form-label">Email address</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-control"
+            placeholder="john@example.com"
+            value="{{ form_data.email if form_data else '' }}"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label for="password" class="form-label">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock"></i></span>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-control"
+            placeholder="Min. 6 characters"
+            required
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            onclick="togglePass()"
+            tabindex="-1"
+          >
+            <i class="bi bi-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+        <div class="form-text text-secondary mt-1" style="font-size:0.78rem;">
+          Password will be hashed using bcrypt 🔐
+        </div>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-person-plus me-2"></i>Create Account
+        </button>
+      </div>
+
+    </form>
+
+    <hr class="divider" />
+
+    <p class="text-center text-secondary mb-0" style="font-size:0.85rem;">
+      Already have an account?
+      <a href="/login" class="fw-semibold">Sign in</a>
+    </p>
+
+  </div>
+</div>
+
+<script>
+  function togglePass() {
+    const inp = document.getElementById('password');
+    const ico = document.getElementById('eyeIcon');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      ico.className = 'bi bi-eye-slash';
+    } else {
+      inp.type = 'password';
+      ico.className = 'bi bi-eye';
+    }
+  }
+</script>
+{% endblock %}

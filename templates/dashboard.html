@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block body %}
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg" style="background: rgba(13,17,23,0.95); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
+  <div class="container">
+    <a class="navbar-brand" href="/dashboard">
+      <i class="bi bi-shield-lock-fill me-2"></i>AuthZen
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <span class="text-secondary" style="font-size:0.85rem;">
+        <i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem;"></i>
+        Logged in as <strong class="text-light">{{ user.username }}</strong>
+      </span>
+      <a href="/logout" class="btn btn-sm btn-outline-danger">
+        <i class="bi bi-box-arrow-right me-1"></i>Logout
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container py-5">
+
+  <!-- Welcome Banner -->
+  <div class="mb-5 p-4" style="background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,106,247,0.12)); border: 1px solid rgba(79,142,247,0.2); border-radius: 16px;">
+    <div class="d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background: rgba(79,142,247,0.15);">
+        <i class="bi bi-person-circle" style="color: #4f8ef7;"></i>
+      </div>
+      <div>
+        <h4 class="mb-0 fw-bold">Welcome back, {{ user.username }}! 👋</h4>
+        <p class="text-secondary mb-0 mt-1" style="font-size:0.88rem;">
+          <i class="bi bi-envelope me-1"></i>{{ user.email }} &nbsp;·&nbsp;
+          <span class="badge-role">Active User</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="row g-4 mb-5">
+
+    <div class="col-md-4">
+      <div class="stat-card h-100">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="stat-icon" style="background: rgba(34,197,94,0.15);">
+            <i class="bi bi-shield-check" style="color: #22c55e;"></i>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Status</div>
+            <div class="fw-semibold">Authenticated</div>
+          </div>
+        </div>
+        <div class="text-secondary" style="font-size:0.82rem;">JWT token verified successfully. Session is active.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="stat-card h-100">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="stat-icon" style="background: rgba(168,139,250,0.15);">
+            <i class="bi bi-calendar3" style="color: #a78bfa;"></i>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Joined</div>
+            <div class="fw-semibold">{{ user.created_at.strftime('%d %b %Y') }}</div>
+          </div>
+        </div>
+        <div class="text-secondary" style="font-size:0.82rem;">Account creation date on IAM system.</div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="stat-card h-100">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="stat-icon" style="background: rgba(251,191,36,0.15);">
+            <i class="bi bi-person-badge" style="color: #fbbf24;"></i>
+          </div>
+          <div>
+            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">User ID</div>
+            <div class="fw-semibold">#{{ user.id }}</div>
+          </div>
+        </div>
+        <div class="text-secondary" style="font-size:0.82rem;">
+          Phase 2 me roles assign honge (RBAC).
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JWT Token Info -->
+  <div class="stat-card mb-4">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-key-fill" style="color: #4f8ef7;"></i>
+      <h6 class="mb-0 fw-semibold">Your JWT Token (stored in HttpOnly Cookie)</h6>
+    </div>
+    <div class="token-box">{{ token }}</div>
+    <p class="text-secondary mt-2 mb-0" style="font-size:0.78rem;">
+      <i class="bi bi-info-circle me-1"></i>
+      Token contains <code>user_id</code> in payload. Expires in {{ expire_minutes }} minutes.
+      Stored as HttpOnly cookie — not accessible via JavaScript.
+    </p>
+  </div>
+
+  <!-- Phase Roadmap -->
+  <div class="stat-card">
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-map" style="color: #a78bfa;"></i>
+      <h6 class="mb-0 fw-semibold">IAM Roadmap</h6>
+    </div>
+    <ul class="list-unstyled mb-0">
+      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
+        <span class="badge bg-success me-2">Done</span>
+        <strong>Phase 1</strong> — Authentication (JWT + bcrypt) ✅
+      </li>
+      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
+        <span class="badge bg-secondary me-2">Next</span>
+        <strong>Phase 2</strong> — RBAC (Roles & Permissions)
+      </li>
+      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
+        <span class="badge bg-secondary me-2">Soon</span>
+        <strong>Phase 3</strong> — IAM Service API (/validate-token)
+      </li>
+      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
+        <span class="badge bg-secondary me-2">Soon</span>
+        <strong>Phase 4</strong> — Multi-Application Support
+      </li>
+      <li class="py-2">
+        <span class="badge bg-secondary me-2">Future</span>
+        <strong>Phase 5-8</strong> — Security, Admin UI, Audit Logs, OAuth2
+      </li>
+    </ul>
+  </div>
+
+</div>
+{% endblock %}
