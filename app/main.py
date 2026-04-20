@@ -10,70 +10,103 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.routes import auth, users, roles, permissions, applications, audit_logs
 from app.routes import pages
-from app.db.session import engine
+from app.db.session import engine, SessionLocal
 from app.db.base import Base
 from app.core.config import settings
 
+# ── Import ALL models so they register with Base.metadata ─────
+import app.models  # noqa: F401
+
 
 def create_database_if_not_exists():
-    """
-    PostgreSQL me target database create karo agar exist nahi karta.
-    Default 'postgres' DB se connect karke check karta hai.
-    """
-    # DATABASE_URL se parts extract karo
-    # Format: postgresql://user:password@host:port/dbname
     url = settings.DATABASE_URL
-    # Parse: postgresql://user:pass@host:port/dbname
     without_scheme = url.replace("postgresql://", "")
     userpass, hostportdb = without_scheme.split("@")
     user, password = userpass.split(":", 1)
     hostport, dbname = hostportdb.rsplit("/", 1)
-    if ":" in hostport:
-        host, port = hostport.split(":")
-        port = int(port)
-    else:
-        host = hostport
-        port = 5432
+    host, port = (hostport.split(":") + ["5432"])[:2]
+    port = int(port)
 
     try:
-        # Default 'postgres' database se connect karo
-        conn = psycopg2.connect(
-            dbname="postgres",
-            user=user,
-            password=password,
-            host=host,
-            port=port,
-        )
+        conn = psycopg2.connect(dbname="postgres", user=user, password=password, host=host, port=port)
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        cursor = conn.cursor()
-
-        # Check if DB exists
-        cursor.execute(f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'")
-        exists = cursor.fetchone()
-
-        if not exists:
-            cursor.execute(f'CREATE DATABASE "{dbname}"')
-            print(f"[IAM] Database '{dbname}' created successfully.")
+        cur = conn.cursor()
+        cur.execute(f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'")
+        if not cur.fetchone():
+            cur.execute(f'CREATE DATABASE "{dbname}"')
+            print(f"[IAM] Database '{dbname}' created.")
         else:
             print(f"[IAM] Database '{dbname}' already exists.")
-
-        cursor.close()
+        cur.close()
         conn.close()
     except Exception as e:
         print(f"[IAM] Warning: Could not auto-create database: {e}")
 
 
-# ── Step 1: Create DB if not exists ──────────────────────────
-create_database_if_not_exists()
+def seed_defaults():
+    """Seed default roles (admin, user) and permissions (read, write, delete) on first run."""
+    from app.models.role import Role
+    from app.models.permission import Permission
 
-# ── Step 2: Create all tables ─────────────────────────────────
+    db = SessionLocal()
+    try:
+        # ── Permissions ──────────────────────────────────────
+        default_perms = [
+            ("read",   "Can read resources"),
+            ("write",  "Can create and update resources"),
+            ("delete", "Can delete resources"),
+        ]
+        perm_objs = {}
+        for name, desc in default_perms:
+            p = db.query(Permission).filter_by(name=name).first()
+            if not p:
+                p = Permission(name=name, description=desc)
+                db.add(p)
+                db.flush()
+                print(f"[IAM] Permission '{name}' created.")
+            perm_objs[name] = p
+
+        # ── Roles ─────────────────────────────────────────────
+        admin_role = db.query(Role).filter_by(name="admin").first()
+        if not admin_role:
+            admin_role = Role(name="admin", description="Full access")
+            db.add(admin_role)
+            db.flush()
+            print("[IAM] Role 'admin' created.")
+        # admin → all permissions
+        admin_role.permissions = list(perm_objs.values())
+
+        user_role = db.query(Role).filter_by(name="user").first()
+        if not user_role:
+            user_role = Role(name="user", description="Read-only access")
+            db.add(user_role)
+            db.flush()
+            print("[IAM] Role 'user' created.")
+        # user → read only
+        if perm_objs["read"] not in user_role.permissions:
+            user_role.permissions = [perm_objs["read"]]
+
+        db.commit()
+        print("[IAM] Default roles & permissions seeded.")
+    except Exception as e:
+        db.rollback()
+        print(f"[IAM] Seed error: {e}")
+    finally:
+        db.close()
+
+
+# ── Step 1: DB + Tables ───────────────────────────────────────
+create_database_if_not_exists()
 Base.metadata.create_all(bind=engine)
 print("[IAM] All tables created/verified.")
+
+# ── Step 2: Seed defaults ─────────────────────────────────────
+seed_defaults()
 
 app = FastAPI(
     title="IAM Service",
     description="Identity and Access Management — JWT + bcrypt + RBAC",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 # ── Middleware ────────────────────────────────────────────────
@@ -100,4 +133,4 @@ app.include_router(audit_logs.router,   prefix="/logs",        tags=["Audit Logs
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "ok", "service": "IAM"}
+    return {"status": "ok", "service": "IAM", "version": "2.0.0 (RBAC)"}

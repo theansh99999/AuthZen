@@ -14,15 +14,17 @@ Flow:
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from pydantic import ValidationError
 
 from app.db.session import get_db
-from app.schemas.user import UserCreate, UserLogin
+from app.schemas.user import UserCreate
 from app.services.auth_service import register_user, authenticate_user
 from app.core.security import create_access_token, decode_access_token
 from app.services.user_service import get_user_by_id
 from app.core.config import settings
+from app.models.user import User
+from app.models.role import Role
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -145,6 +147,14 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     user_id = int(payload.get("sub"))
     user = get_user_by_id(db, user_id)
 
+    # Load all users + all roles for admin panel
+    all_users = (
+        db.query(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .all()
+    )
+    all_roles = db.query(Role).options(selectinload(Role.permissions)).all()
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -152,8 +162,54 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "user": user,
             "token": token,
             "expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+            "all_users": all_users,
+            "all_roles": all_roles,
         },
     )
+
+
+# ─── Assign Role (Web Form) ───────────────────────────────────
+@router.post("/assign-role", response_class=RedirectResponse)
+def assign_role_web(
+    request: Request,
+    target_user_id: int = Form(...),
+    role_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Web form se role assign karo — sirf authenticated users kar sakte hain."""
+    token = request.cookies.get("access_token")
+    if not token or not decode_access_token(token):
+        return RedirectResponse(url="/login", status_code=302)
+
+    from app.services.role_service import assign_role_to_user
+    assign_role_to_user(db, target_user_id, role_id)
+    return RedirectResponse(url="/dashboard", status_code=302)
+
+
+# ─── Remove Role (Web Form) ──────────────────────────────────
+@router.post("/remove-role", response_class=RedirectResponse)
+def remove_role_web(
+    request: Request,
+    target_user_id: int = Form(...),
+    role_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    token = request.cookies.get("access_token")
+    if not token or not decode_access_token(token):
+        return RedirectResponse(url="/login", status_code=302)
+
+    target_user = (
+        db.query(User)
+        .options(selectinload(User.roles))
+        .filter(User.id == target_user_id)
+        .first()
+    )
+    if target_user:
+        role = db.query(Role).filter(Role.id == role_id).first()
+        if role and role in target_user.roles:
+            target_user.roles.remove(role)
+            db.commit()
+    return RedirectResponse(url="/dashboard", status_code=302)
 
 
 # ─── Logout ──────────────────────────────────────────────────
@@ -162,3 +218,4 @@ def logout():
     response = RedirectResponse(url="/login", status_code=302)
     response.delete_cookie("access_token")
     return response
+

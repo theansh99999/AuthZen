@@ -1,14 +1,7 @@
-"""
-models/role.py - Role ORM Model (Phase 2: RBAC)
-
-Table: roles
-Columns: id, name, description, created_at
-
-Example roles: admin, user, moderator
-"""
-
 from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
+from app.models.associations import user_roles, role_permissions
 
 
 class Role(Base):
@@ -19,6 +12,5 @@ class Role(Base):
     description = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # TODO Phase 2: Add relationships
-    # permissions = relationship("Permission", secondary="role_permissions", back_populates="roles")
-    # users = relationship("User", secondary="user_roles", back_populates="roles")
+    users = relationship("User", secondary=user_roles, back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")

@@ -1,15 +1,6 @@
-"""
-schemas/user.py - Pydantic schemas for User
-
-UserCreate  → signup request body
-UserLogin   → login request body
-UserOut     → response (password hash exclude)
-Token       → JWT token response
-TokenData   → decoded JWT payload
-"""
-
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from app.schemas.role import RoleOut
 
 
 class UserCreate(BaseModel):
@@ -29,6 +20,7 @@ class UserOut(BaseModel):
     email: EmailStr
     is_active: bool
     created_at: datetime
+    roles: list[RoleOut] = []
 
     model_config = {"from_attributes": True}
 

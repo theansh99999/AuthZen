@@ -1,14 +1,7 @@
-"""
-models/permission.py - Permission ORM Model (Phase 2: RBAC)
-
-Table: permissions
-Columns: id, name, description
-
-Example permissions: read, write, delete, admin:all
-"""
-
 from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy.orm import relationship
 from app.db.base import Base
+from app.models.associations import role_permissions
 
 
 class Permission(Base):
@@ -19,4 +12,4 @@ class Permission(Base):
     description = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # TODO Phase 2: role_permissions association table se link hoga
+    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")

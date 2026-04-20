@@ -5,7 +5,7 @@
 {% block body %}
 
 <!-- Navbar -->
-<nav class="navbar navbar-expand-lg" style="background: rgba(13,17,23,0.95); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
+<nav class="navbar navbar-expand-lg sticky-top" style="background: rgba(13,17,23,0.97); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
   <div class="container">
     <a class="navbar-brand" href="/dashboard">
       <i class="bi bi-shield-lock-fill me-2"></i>AuthZen
@@ -13,7 +13,7 @@
     <div class="d-flex align-items-center gap-3">
       <span class="text-secondary" style="font-size:0.85rem;">
         <i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem;"></i>
-        Logged in as <strong class="text-light">{{ user.username }}</strong>
+        <strong class="text-light">{{ user.username }}</strong>
       </span>
       <a href="/logout" class="btn btn-sm btn-outline-danger">
         <i class="bi bi-box-arrow-right me-1"></i>Logout
@@ -22,119 +22,228 @@
   </div>
 </nav>
 
-<!-- Main Content -->
 <div class="container py-5">
 
   <!-- Welcome Banner -->
-  <div class="mb-5 p-4" style="background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,106,247,0.12)); border: 1px solid rgba(79,142,247,0.2); border-radius: 16px;">
+  <div class="mb-4 p-4" style="background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,106,247,0.12)); border: 1px solid rgba(79,142,247,0.2); border-radius: 16px;">
     <div class="d-flex align-items-center gap-3">
       <div class="stat-icon" style="background: rgba(79,142,247,0.15);">
-        <i class="bi bi-person-circle" style="color: #4f8ef7;"></i>
+        <i class="bi bi-person-circle" style="color: #4f8ef7; font-size:1.6rem;"></i>
       </div>
       <div>
-        <h4 class="mb-0 fw-bold">Welcome back, {{ user.username }}! 👋</h4>
+        <h4 class="mb-0 fw-bold">Welcome, {{ user.username }}! 👋</h4>
         <p class="text-secondary mb-0 mt-1" style="font-size:0.88rem;">
           <i class="bi bi-envelope me-1"></i>{{ user.email }} &nbsp;·&nbsp;
-          <span class="badge-role">Active User</span>
+          <i class="bi bi-person-badge me-1"></i>ID #{{ user.id }}
         </p>
       </div>
     </div>
   </div>
 
-  <!-- Stats Row -->
-  <div class="row g-4 mb-5">
+  <!-- My Roles + My Permissions -->
+  <div class="row g-4 mb-4">
 
-    <div class="col-md-4">
+    <!-- My Roles -->
+    <div class="col-md-6">
       <div class="stat-card h-100">
-        <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="stat-icon" style="background: rgba(34,197,94,0.15);">
-            <i class="bi bi-shield-check" style="color: #22c55e;"></i>
-          </div>
-          <div>
-            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Status</div>
-            <div class="fw-semibold">Authenticated</div>
-          </div>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-person-badge-fill" style="color: #a78bfa;"></i>
+          <h6 class="mb-0 fw-semibold">My Roles</h6>
+          <span class="ms-auto" style="background: rgba(168,139,250,0.15); color: #a78bfa; border: 1px solid rgba(168,139,250,0.3); font-size:0.75rem; padding: 2px 10px; border-radius: 20px;">
+            {{ user.roles | length }}
+          </span>
         </div>
-        <div class="text-secondary" style="font-size:0.82rem;">JWT token verified successfully. Session is active.</div>
+        {% if user.roles %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for role in user.roles %}
+            <span class="px-3 py-1 rounded-pill fw-medium" style="background: rgba(168,139,250,0.12); color: #c4b5fd; border: 1px solid rgba(168,139,250,0.25); font-size:0.82rem;">
+              <i class="bi bi-tag me-1"></i>{{ role.name }}
+            </span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-secondary mb-0" style="font-size:0.85rem;">
+            <i class="bi bi-info-circle me-1"></i>No roles assigned. Use the panel below.
+          </p>
+        {% endif %}
       </div>
     </div>
 
-    <div class="col-md-4">
+    <!-- My Permissions -->
+    <div class="col-md-6">
       <div class="stat-card h-100">
-        <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="stat-icon" style="background: rgba(168,139,250,0.15);">
-            <i class="bi bi-calendar3" style="color: #a78bfa;"></i>
-          </div>
-          <div>
-            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">Joined</div>
-            <div class="fw-semibold">{{ user.created_at.strftime('%d %b %Y') }}</div>
-          </div>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="bi bi-key-fill" style="color: #4f8ef7;"></i>
+          <h6 class="mb-0 fw-semibold">My Permissions</h6>
         </div>
-        <div class="text-secondary" style="font-size:0.82rem;">Account creation date on IAM system.</div>
-      </div>
-    </div>
+        {% set all_perms = [] %}
+        {% for role in user.roles %}
+          {% for perm in role.permissions %}
+            {% if perm.name not in all_perms %}{% set _ = all_perms.append(perm.name) %}{% endif %}
+          {% endfor %}
+        {% endfor %}
 
-    <div class="col-md-4">
-      <div class="stat-card h-100">
-        <div class="d-flex align-items-center gap-3 mb-3">
-          <div class="stat-icon" style="background: rgba(251,191,36,0.15);">
-            <i class="bi bi-person-badge" style="color: #fbbf24;"></i>
+        {% if all_perms %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for pname in all_perms %}
+              {% if pname == "read" %}
+                <span class="px-3 py-1 rounded-pill" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);font-size:0.82rem;">
+                  <i class="bi bi-eye me-1"></i>read
+                </span>
+              {% elif pname == "write" %}
+                <span class="px-3 py-1 rounded-pill" style="background:rgba(79,142,247,0.12);color:#7dd3fc;border:1px solid rgba(79,142,247,0.25);font-size:0.82rem;">
+                  <i class="bi bi-pencil me-1"></i>write
+                </span>
+              {% elif pname == "delete" %}
+                <span class="px-3 py-1 rounded-pill" style="background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.25);font-size:0.82rem;">
+                  <i class="bi bi-trash me-1"></i>delete
+                </span>
+              {% else %}
+                <span class="px-3 py-1 rounded-pill" style="background:rgba(255,255,255,0.08);color:#ccc;border:1px solid rgba(255,255,255,0.1);font-size:0.82rem;">
+                  {{ pname }}
+                </span>
+              {% endif %}
+            {% endfor %}
           </div>
-          <div>
-            <div class="text-secondary" style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px;">User ID</div>
-            <div class="fw-semibold">#{{ user.id }}</div>
-          </div>
-        </div>
-        <div class="text-secondary" style="font-size:0.82rem;">
-          Phase 2 me roles assign honge (RBAC).
-        </div>
+        {% else %}
+          <p class="text-secondary mb-0" style="font-size:0.85rem;">
+            <i class="bi bi-lock me-1"></i>No permissions. Assign a role to get access.
+          </p>
+        {% endif %}
       </div>
     </div>
 
   </div>
 
-  <!-- JWT Token Info -->
+  <!-- ═══ USER MANAGEMENT TABLE ═══ -->
+  <div class="stat-card mb-4">
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <i class="bi bi-people-fill" style="color: #4f8ef7;"></i>
+      <h6 class="mb-0 fw-semibold">User Management — Role Assignment</h6>
+      <span class="ms-auto text-secondary" style="font-size:0.8rem;">{{ all_users | length }} user(s)</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-dark table-hover align-middle mb-0" style="--bs-table-bg: transparent; border-color: rgba(255,255,255,0.06);">
+        <thead>
+          <tr style="border-color: rgba(255,255,255,0.08);">
+            <th style="font-size:0.78rem; color:#8b949e; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; border:none;">#ID</th>
+            <th style="font-size:0.78rem; color:#8b949e; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; border:none;">User</th>
+            <th style="font-size:0.78rem; color:#8b949e; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; border:none;">Assigned Roles</th>
+            <th style="font-size:0.78rem; color:#8b949e; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; border:none;">Assign Role</th>
+            <th style="font-size:0.78rem; color:#8b949e; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; border:none;">Remove Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in all_users %}
+          <tr style="border-color: rgba(255,255,255,0.04);">
+
+            <!-- ID -->
+            <td style="color:#8b949e; font-size:0.85rem;">#{{ u.id }}</td>
+
+            <!-- User Info -->
+            <td>
+              <div class="fw-medium" style="font-size:0.9rem;">{{ u.username }}</div>
+              <div class="text-secondary" style="font-size:0.78rem;">{{ u.email }}</div>
+            </td>
+
+            <!-- Current Roles -->
+            <td>
+              {% if u.roles %}
+                <div class="d-flex flex-wrap gap-1">
+                  {% for r in u.roles %}
+                  <span class="badge" style="background:rgba(168,139,250,0.15); color:#c4b5fd; border:1px solid rgba(168,139,250,0.3); font-size:0.72rem; padding:4px 8px;">
+                    {{ r.name }}
+                  </span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span class="text-secondary" style="font-size:0.82rem;">— no role</span>
+              {% endif %}
+            </td>
+
+            <!-- Assign Role Form -->
+            <td>
+              <form method="POST" action="/assign-role" class="d-flex gap-2">
+                <input type="hidden" name="target_user_id" value="{{ u.id }}" />
+                <select name="role_id" class="form-select form-select-sm" style="min-width:100px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; font-size:0.82rem;">
+                  {% for role in all_roles %}
+                  <option value="{{ role.id }}">{{ role.name }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm" style="background:rgba(79,142,247,0.15); color:#4f8ef7; border:1px solid rgba(79,142,247,0.3); white-space:nowrap;">
+                  <i class="bi bi-plus-lg me-1"></i>Assign
+                </button>
+              </form>
+            </td>
+
+            <!-- Remove Role Form -->
+            <td>
+              {% if u.roles %}
+              <form method="POST" action="/remove-role" class="d-flex gap-2">
+                <input type="hidden" name="target_user_id" value="{{ u.id }}" />
+                <select name="role_id" class="form-select form-select-sm" style="min-width:100px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; font-size:0.82rem;">
+                  {% for r in u.roles %}
+                  <option value="{{ r.id }}">{{ r.name }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm" style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.25); white-space:nowrap;">
+                  <i class="bi bi-dash-lg me-1"></i>Remove
+                </button>
+              </form>
+              {% else %}
+                <span class="text-secondary" style="font-size:0.8rem;">—</span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Available Roles Info -->
   <div class="stat-card mb-4">
     <div class="d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-key-fill" style="color: #4f8ef7;"></i>
-      <h6 class="mb-0 fw-semibold">Your JWT Token (stored in HttpOnly Cookie)</h6>
+      <i class="bi bi-shield-fill" style="color: #a78bfa;"></i>
+      <h6 class="mb-0 fw-semibold">Available Roles & Their Permissions</h6>
     </div>
-    <div class="token-box">{{ token }}</div>
-    <p class="text-secondary mt-2 mb-0" style="font-size:0.78rem;">
-      <i class="bi bi-info-circle me-1"></i>
-      Token contains <code>user_id</code> in payload. Expires in {{ expire_minutes }} minutes.
-      Stored as HttpOnly cookie — not accessible via JavaScript.
-    </p>
+    <div class="row g-3">
+      {% for role in all_roles %}
+      <div class="col-md-6">
+        <div class="p-3" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px;">
+          <div class="fw-semibold mb-2" style="color:#c4b5fd;">
+            <i class="bi bi-tag me-2"></i>{{ role.name }}
+            {% if role.description %}
+              <span class="text-secondary fw-normal" style="font-size:0.8rem;">— {{ role.description }}</span>
+            {% endif %}
+          </div>
+          <div class="d-flex flex-wrap gap-1">
+            {% if role.permissions %}
+              {% for perm in role.permissions %}
+                <span class="badge" style="background:rgba(34,197,94,0.1); color:#4ade80; border:1px solid rgba(34,197,94,0.2); font-size:0.72rem;">
+                  {{ perm.name }}
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="text-secondary" style="font-size:0.8rem;">No permissions assigned</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
 
-  <!-- Phase Roadmap -->
+  <!-- JWT Token -->
   <div class="stat-card">
     <div class="d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-map" style="color: #a78bfa;"></i>
-      <h6 class="mb-0 fw-semibold">IAM Roadmap</h6>
+      <i class="bi bi-braces" style="color: #4f8ef7;"></i>
+      <h6 class="mb-0 fw-semibold">JWT Token (HttpOnly Cookie)</h6>
+      <span class="ms-auto text-secondary" style="font-size:0.78rem;">Expires in {{ expire_minutes }} min</span>
     </div>
-    <ul class="list-unstyled mb-0">
-      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
-        <span class="badge bg-success me-2">Done</span>
-        <strong>Phase 1</strong> — Authentication (JWT + bcrypt) ✅
-      </li>
-      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
-        <span class="badge bg-secondary me-2">Next</span>
-        <strong>Phase 2</strong> — RBAC (Roles & Permissions)
-      </li>
-      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
-        <span class="badge bg-secondary me-2">Soon</span>
-        <strong>Phase 3</strong> — IAM Service API (/validate-token)
-      </li>
-      <li class="py-2 border-bottom" style="border-color: rgba(255,255,255,0.06) !important;">
-        <span class="badge bg-secondary me-2">Soon</span>
-        <strong>Phase 4</strong> — Multi-Application Support
-      </li>
-      <li class="py-2">
-        <span class="badge bg-secondary me-2">Future</span>
-        <strong>Phase 5-8</strong> — Security, Admin UI, Audit Logs, OAuth2
-      </li>
-    </ul>
+    <div class="token-box">{{ token }}</div>
   </div>
 
 </div>
