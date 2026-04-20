@@ -13,6 +13,7 @@ user_roles = Table(
     Base.metadata,
     Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("app_id", Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=True),
 )
 
 role_permissions = Table(

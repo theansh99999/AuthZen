@@ -13,14 +13,25 @@ require_permission(permission_name):
 """
 
 from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session, selectinload
+from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
+from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.core.security import decode_access_token
 from app.models.user import User
-from app.models.role import Role
+from app.services.iam_service import verify_jwt_token, check_user_permission
+from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def verify_api_key(api_key: str | None = Depends(api_key_header)):
+    """External Apps ke liye optional security via API key."""
+    if api_key and api_key != settings.IAM_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid API Key for IAM Service",
+        )
+    return api_key
 
 
 def get_current_user(
@@ -33,7 +44,6 @@ def get_current_user(
       - API calls  → Authorization: Bearer <token>
       - Web calls  → access_token cookie
     """
-    # Try Bearer token first, then cookie
     if not token:
         token = request.cookies.get("access_token")
 
@@ -44,48 +54,28 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    payload = decode_access_token(token)
-    if not payload:
+    user = verify_jwt_token(db, token)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail="Invalid or expired token, or user inactive.",
             headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user_id = int(payload.get("sub"))
-
-    # Eager load roles + permissions in single query
-    user = (
-        db.query(User)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
-        .filter(User.id == user_id)
-        .first()
-    )
-
-    if not user or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive.",
         )
 
     return user
 
 
-def require_permission(permission_name: str):
+def require_permission(permission_name: str, app_id: int | None = None):
     """
     Dependency factory — permission-based access control.
-
-    Example:
-        Depends(require_permission("write"))
-        Depends(require_permission("delete"))
+    Supports app_id for multi-tenant checks.
     """
-    def dependency(current_user: User = Depends(get_current_user)) -> User:
-        user_permissions = {
-            perm.name
-            for role in current_user.roles
-            for perm in role.permissions
-        }
-        if permission_name not in user_permissions:
+    def dependency(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        has_permission = check_user_permission(db, current_user, permission_name, app_id=app_id)
+        if not has_permission:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission '{permission_name}' required.",

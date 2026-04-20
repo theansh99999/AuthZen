@@ -32,3 +32,51 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         )
     token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
+
+
+from app.schemas.iam import TokenValidationRequest, TokenValidationResponse, PermissionCheckRequest, PermissionCheckResponse
+from app.services.iam_service import verify_jwt_token, check_user_permission
+from app.core.dependencies import verify_api_key, oauth2_scheme
+from app.utils.rate_limit import rate_limiter
+
+@router.post(
+    "/validate-token",
+    response_model=TokenValidationResponse,
+    dependencies=[Depends(verify_api_key), Depends(rate_limiter)]
+)
+def validate_token(
+    data: TokenValidationRequest,
+    header_token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    token = data.token or header_token
+    if not token:
+        return {"is_valid": False, "error": "Token missing"}
+        
+    user = verify_jwt_token(db, token)
+    if not user:
+        return {"is_valid": False, "error": "Invalid or expired token"}
+        
+    return {"is_valid": True, "user": user}
+
+
+@router.post(
+    "/check-permission",
+    response_model=PermissionCheckResponse,
+    dependencies=[Depends(verify_api_key), Depends(rate_limiter)]
+)
+def check_permission(
+    data: PermissionCheckRequest,
+    header_token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    token = data.token or header_token
+    if not token:
+        return {"has_permission": False, "error": "Token missing"}
+        
+    user = verify_jwt_token(db, token)
+    if not user:
+        return {"has_permission": False, "error": "Invalid or expired token"}
+        
+    has_perm = check_user_permission(db, user, data.permission, data.app_id)
+    return {"has_permission": has_perm}

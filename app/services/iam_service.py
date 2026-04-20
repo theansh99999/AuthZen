@@ -1,0 +1,80 @@
+"""
+services/iam_service.py - Reusable IAM Component
+
+Contains reusable logic for extracting and validating a user from a token,
+and checking their permissions across granular roles/applications.
+"""
+
+from sqlalchemy.orm import Session, selectinload
+from fastapi import HTTPException, status
+from app.core.security import decode_access_token
+from app.models.user import User
+from app.models.role import Role
+from app.models.permission import Permission
+
+
+def verify_jwt_token(db: Session, token: str) -> User | None:
+    """
+    Decodes the JWT token and fetches the User from the database.
+    Also eager loads their roles and permissions to be used later.
+    """
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        return None
+
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        return None
+
+    # We use selectinload to eagerly load the roles and permissions 
+    # to avoid lazy loading issues later in the session lifecycle.
+    user = (
+        db.query(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .filter(User.id == user_id)
+        .first()
+    )
+
+    if not user or not user.is_active:
+        return None
+
+    return user
+
+
+def check_user_permission(db: Session, user: User, permission_name: str, app_id: int | None = None) -> bool:
+    """
+    Validates if the user has the required permission.
+    If app_id is provided, checks if the user has the permission specifically 
+    granted to that application, or via a global role.
+    """
+    if app_id is not None:
+        # Phase 4 Many to Many schema query
+        # Since we added app_id in the user_roles table, we need to query explicitly 
+        # to see which roles the user has for this app_id or global (app_id IS NULL)
+        from app.models.associations import user_roles
+        
+        # Get roles that match the user and (to the app or global)
+        stmt = (
+            db.query(Role)
+            .join(user_roles, user_roles.c.role_id == Role.id)
+            .filter(
+                user_roles.c.user_id == user.id,
+                (user_roles.c.app_id == app_id) | (user_roles.c.app_id.is_(None))
+            )
+        )
+        active_roles = stmt.all()
+    else:
+        # standard global evaluation
+        active_roles = user.roles
+
+    for role in active_roles:
+        for perm in role.permissions:
+            if perm.name == permission_name:
+                return True
+                
+    return False
