@@ -11,9 +11,9 @@ from app.schemas.role import RoleCreate
 
 
 def create_role(db: Session, data: RoleCreate) -> Role:
-    if db.query(Role).filter(Role.name == data.name).first():
-        raise HTTPException(status_code=400, detail=f"Role '{data.name}' already exists.")
-    role = Role(name=data.name, description=data.description)
+    if db.query(Role).filter(Role.name == data.name, Role.app_id == data.app_id).first():
+        raise HTTPException(status_code=400, detail=f"Role '{data.name}' already exists in this scope.")
+    role = Role(name=data.name, description=data.description, app_id=data.app_id)
     db.add(role)
     db.commit()
     db.refresh(role)
@@ -36,6 +36,11 @@ def assign_permission_to_role(db: Session, role_id: int, permission_id: int) -> 
     permission = db.query(Permission).filter(Permission.id == permission_id).first()
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found.")
+    
+    if role.app_id is not None and permission.app_id is not None:
+        if role.app_id != permission.app_id:
+            raise HTTPException(status_code=400, detail="Role and Permission must belong to the same application.")
+            
     if permission not in role.permissions:
         role.permissions.append(permission)
         db.commit()

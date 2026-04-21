@@ -6,6 +6,7 @@ class PermissionOut(BaseModel):
     id: int
     name: str
     description: str | None = None
+    app_id: int | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -14,3 +15,4 @@ class PermissionOut(BaseModel):
 class PermissionCreate(BaseModel):
     name: str
     description: str | None = None
+    app_id: int | None = None
