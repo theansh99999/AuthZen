@@ -17,7 +17,7 @@ A production-ready, multi-tenant **IAM (Identity & Access Management)** service 
 | Phase 3 | API-based IAM Service | ✅ Complete |
 | Phase 4 | Multi-Application Support | ✅ Complete |
 | Phase 5 | Advanced Security (Refresh Tokens, Account Lock) | ✅ Complete |
-| Phase 6 | Admin Dashboard (UI) | 🔄 In Progress |
+| Phase 6 | Admin Dashboard (UI) | ✅ Complete |
 | Phase 7 | Audit Logs | 🔄 In Progress |
 | Phase 8 | OAuth2 / SSO | ⏳ Planned |
 
