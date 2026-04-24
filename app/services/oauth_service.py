@@ -41,7 +41,7 @@ def generate_auth_code(db: Session, user_id: int, app_id: int, redirect_uri: str
     return code
 
 
-def exchange_code_for_token(db: Session, code: str, app_id: int, redirect_uri: str) -> dict:
+def exchange_code_for_token(db: Session, code: str, app_id: int, redirect_uri: str, api_key: str) -> dict:
     """Exchange auth code for JWT access token. Code is single-use."""
     record = db.query(AuthCode).filter(AuthCode.code == code).first()
 
@@ -53,6 +53,11 @@ def exchange_code_for_token(db: Session, code: str, app_id: int, redirect_uri: s
         raise HTTPException(status_code=400, detail="app_id mismatch.")
     if record.redirect_uri.rstrip("/") != redirect_uri.rstrip("/"):
         raise HTTPException(status_code=400, detail="redirect_uri mismatch.")
+    
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app or app.api_key != api_key:
+        raise HTTPException(status_code=401, detail="Invalid application api_key.")
+
     if datetime.now(timezone.utc) > record.expires_at.replace(tzinfo=timezone.utc):
         raise HTTPException(status_code=400, detail="Authorization code has expired.")
 

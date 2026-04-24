@@ -264,6 +264,7 @@ const TESTS = [
       if (r.status === 403) throw new Error('403 — Need admin/write permission');
       if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
       state.appId = d.id;
+      state.apiKey = d.api_key;
       const hasKey = d.api_key && d.api_key.startsWith('iam_');
       return { ok: hasKey, msg: `App "${d.name}" created. Key: ${d.api_key?.slice(0,20)}... | redirect_uri: ${d.redirect_uri}` };
     }
@@ -281,6 +282,7 @@ const TESTS = [
       if (r.status === 403) return { ok: true, msg: '403 — Not admin (expected for non-admin)' };
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+      state.apiKey = d.api_key;
       return { ok: d.api_key?.startsWith('iam_'), msg: `New key: ${d.api_key?.slice(0,20)}...` };
     }
   },
@@ -325,14 +327,14 @@ const TESTS = [
     }
   },
   {
-    id: 'post_token_p9', group: 'Phase 9 — OAuth2 Auth Code', name: 'POST /token',
-    desc: 'Exchange code for JWT access token',
+    id: 'post_token_p10', group: 'Phase 10 — Secure Token Exchange', name: 'POST /token',
+    desc: 'Exchange code for JWT access token (Requires api_key)',
     run: async () => {
       if (!state.authCode) return { ok: false, msg: 'No auth code obtained', skip: true };
       const r = await fetch('/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: state.authCode, app_id: state.appId, redirect_uri: '/health' })
+        body: JSON.stringify({ code: state.authCode, app_id: state.appId, redirect_uri: '/health', api_key: state.apiKey })
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);

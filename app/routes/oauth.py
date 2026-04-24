@@ -88,9 +88,9 @@ class TokenRequest(BaseModel):
     code: str
     app_id: int
     redirect_uri: str
-
+    api_key: str
 
 @router.post("/token")
 def token_exchange(data: TokenRequest, db: Session = Depends(get_db)):
     """Exchange authorization code for JWT access token. Single-use, 5-minute expiry."""
-    return exchange_code_for_token(db, data.code, data.app_id, data.redirect_uri)
+    return exchange_code_for_token(db, data.code, data.app_id, data.redirect_uri, data.api_key)
