@@ -24,14 +24,26 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def verify_api_key(api_key: str | None = Depends(api_key_header)):
-    """External Apps ke liye optional security via API key."""
-    if api_key and api_key != settings.IAM_API_KEY:
+def verify_api_key(
+    api_key: str | None = Depends(api_key_header),
+    db: Session = Depends(get_db)
+):
+    """External Apps ke liye security via DB-validated API key."""
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API Key missing",
+        )
+        
+    from app.models.application import Application
+    app = db.query(Application).filter(Application.api_key == api_key).first()
+    
+    if not app or not app.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid API Key for IAM Service",
+            detail="Invalid or inactive API Key",
         )
-    return api_key
+    return app
 
 
 def get_current_user(

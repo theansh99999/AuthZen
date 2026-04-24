@@ -19,7 +19,7 @@ from app.services.audit_service import log_action_bg
 router = APIRouter()
 
 
-@router.post("/signup", response_model=UserOut, status_code=201)
+@router.post("/signup", response_model=UserOut, status_code=201, dependencies=[Depends(rate_limiter)])
 def signup(data: UserCreate, db: Session = Depends(get_db)):
     user = register_user(db, data)
     return user
@@ -36,12 +36,12 @@ def login(data: UserLogin, request: Request, background_tasks: BackgroundTasks, 
             detail="Invalid email or password",
         )
     log_action_bg(background_tasks, request, user.id, "login_success", {"email": user.email})
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    access_token = create_access_token(data={"sub": str(user.id), "perm_version": user.perm_version})
+    refresh_token = create_refresh_token(data={"sub": str(user.id), "perm_version": user.perm_version})
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.post("/refresh", response_model=Token, dependencies=[Depends(rate_limiter)])
-def refresh(data: RefreshTokenRequest):
+def refresh(data: RefreshTokenRequest, db: Session = Depends(get_db)):
     payload = decode_refresh_token(data.refresh_token)
     if not payload or not payload.get("sub"):
         raise HTTPException(
@@ -49,11 +49,13 @@ def refresh(data: RefreshTokenRequest):
             detail="Invalid or expired refresh token",
         )
     
-    # Issue a new access token
-    new_access_token = create_access_token(data={"sub": payload["sub"]})
-    
-    # We could also issue a new refresh token (token rotation), but for now we just return the same one or generate a new one. Let's issue a new one for better security.
-    new_refresh_token = create_refresh_token(data={"sub": payload["sub"]})
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or deleted")
+
+    # Issue a new access token with CURRENT perm_version
+    new_access_token = create_access_token(data={"sub": str(user.id), "perm_version": user.perm_version})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id), "perm_version": user.perm_version})
     
     return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 

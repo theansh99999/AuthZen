@@ -43,6 +43,11 @@ def verify_jwt_token(db: Session, token: str) -> User | None:
     if not user or not user.is_active:
         return None
 
+    # Phase 14: Stale token invalidation
+    token_perm_version = payload.get("perm_version", 1)
+    if token_perm_version != user.perm_version:
+        return None
+
     return user
 
 

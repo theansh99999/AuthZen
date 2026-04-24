@@ -98,6 +98,10 @@ def assign_role_to_user_for_app(db: Session, user_id: int, role_id: int, app_id:
     db.execute(
         insert(user_roles).values(user_id=user_id, role_id=role_id, app_id=app_id)
     )
+    
+    # Phase 14: Invalidate stale tokens
+    user.perm_version += 1
+    
     db.commit()
     
     return {"message": f"Assigned role '{role.name}' to user '{user.username}' for app '{application.name}'."}

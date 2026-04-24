@@ -65,8 +65,14 @@ def exchange_code_for_token(db: Session, code: str, app_id: int, redirect_uri: s
     record.used = True
     db.commit()
 
-    # Generate JWT
-    token = create_access_token(data={"sub": str(record.user_id)})
+    # Phase 14: Get User's perm_version
+    from app.models.user import User
+    user = db.query(User).filter(User.id == record.user_id).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User no longer exists.")
+
+    # Generate JWT with perm_version
+    token = create_access_token(data={"sub": str(record.user_id), "perm_version": user.perm_version})
     return {
         "access_token": token,
         "token_type": "bearer",

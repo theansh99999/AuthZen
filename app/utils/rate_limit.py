@@ -15,14 +15,19 @@ RATE_LIMIT_WINDOW_SECONDS = 60
 
 def rate_limiter(request: Request):
     client_ip = request.client.host if request.client else "unknown"
+    api_key = request.headers.get("X-API-Key")
+    
+    # Track by API key if present, otherwise IP
+    identifier = f"api_key:{api_key}" if api_key else f"ip:{client_ip}"
+    
     current_time = time.time()
     
-    if client_ip not in RATE_LIMIT_CACHE:
-        RATE_LIMIT_CACHE[client_ip] = []
+    if identifier not in RATE_LIMIT_CACHE:
+        RATE_LIMIT_CACHE[identifier] = []
         
     # Remove old timestamps outside of window
     requests_in_window = [
-        ts for ts in RATE_LIMIT_CACHE[client_ip] 
+        ts for ts in RATE_LIMIT_CACHE[identifier] 
         if current_time - ts < RATE_LIMIT_WINDOW_SECONDS
     ]
     
@@ -33,4 +38,4 @@ def rate_limiter(request: Request):
         )
         
     requests_in_window.append(current_time)
-    RATE_LIMIT_CACHE[client_ip] = requests_in_window
+    RATE_LIMIT_CACHE[identifier] = requests_in_window

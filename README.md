@@ -25,19 +25,68 @@ A production-ready, multi-tenant **IAM (Identity & Access Management)** service 
 | Phase 11 | External App Integration Flow | ✅ |
 | Phase 12 | App-scoped RBAC Enforcement | ✅ |
 | Phase 13 | App Access Control (no role → no entry) | ✅ |
-| Phase 14 | Security & Optimization (perm_version, rate limit, validation) | ⏳ Planned |
+| Phase 14 | Security & Optimization (perm_version, rate limit, validation) | ✅ |
 
-## ✨ Features (So Far)
+## ✨ Key Features
 
-- 🔑 **JWT Authentication** — Secure signup, login, and token-based auth
-- 👥 **RBAC** — Roles (`admin`, `user`) and permissions (`read`, `write`, `delete`)
-- 🏢 **Multi-Application Support** — Same user, different roles per application
-- 🔒 **Permission-based Access Control** — Reusable dependency injection guards
-- 📋 **Audit Logs** — Track login attempts, role changes, permission checks
-- 🖥️ **Admin Dashboard** — Basic HTML UI for managing users, roles, permissions
-- 🛡️ **Data Isolation** — Strict `app_id` scoping to prevent cross-app leakage
+### 🔑 Authentication
+- JWT-based login system
+- Redirect-based login (SSO-lite)
+- App-scoped tokens
 
 ---
+
+### 👥 Authorization (RBAC)
+- Roles + Permissions model
+- App-specific role assignments
+- Centralized permission checks via IAM APIs
+
+---
+
+### 🏢 Multi-Tenant Support
+- Same user → different roles per app
+- Strict `app_id` based isolation
+- No cross-application access
+
+---
+
+### 👑 Admin Hierarchy
+- **Super Admin**
+  - Full system access (bypass checks)
+  - Manage all applications
+
+- **App Admin**
+  - Full control within a specific app
+  - Cannot access other apps
+
+---
+
+### 🔄 Permission Versioning (Advanced)
+- JWT contains `perm_version`
+- DB maintains version per user per app
+- Mismatch → token refresh required
+- Prevents stale permission issues
+
+---
+
+### 🔗 External App Integration
+- Apps register with:
+  - `app_id`
+  - `api_key`
+  - `redirect_uri`
+- Apps redirect users to AuthZen for authentication
+- IAM remains the **single source of truth**
+
+---
+
+### 📋 Audit Logs
+- Login success/failure tracking
+- Permission checks
+- Role/permission changes
+- IP & metadata logging
+
+---
+
 
 ## 🛠️ Tech Stack
 

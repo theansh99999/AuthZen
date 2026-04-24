@@ -115,8 +115,8 @@ def login_submit(
             {"error": "Invalid email or password."},
         )
 
-    # Generate JWT with user_id in payload
-    token = create_access_token(data={"sub": str(user.id)})
+    # Generate JWT with user_id and perm_version in payload
+    token = create_access_token(data={"sub": str(user.id), "perm_version": user.perm_version})
 
     # Set as HttpOnly cookie
     response = RedirectResponse(url="/dashboard", status_code=302)

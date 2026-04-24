@@ -46,6 +46,9 @@ def assign_permission_to_role(db: Session, role_id: int, permission_id: int) -> 
             
     if permission not in role.permissions:
         role.permissions.append(permission)
+        # Phase 14: Invalidate tokens for users with this role
+        for user in role.users:
+            user.perm_version += 1
         db.commit()
     db.refresh(role)
     return role
@@ -56,6 +59,9 @@ def remove_permission_from_role(db: Session, role_id: int, permission_id: int) -
     permission = db.query(Permission).filter(Permission.id == permission_id).first()
     if permission and permission in role.permissions:
         role.permissions.remove(permission)
+        # Phase 14: Invalidate tokens for users with this role
+        for user in role.users:
+            user.perm_version += 1
         db.commit()
     db.refresh(role)
     return role
@@ -70,6 +76,8 @@ def assign_role_to_user(db: Session, user_id: int, role_id: int) -> User:
         raise HTTPException(status_code=404, detail="Role not found.")
     if role not in user.roles:
         user.roles.append(role)
+        # Phase 14: Invalidate tokens
+        user.perm_version += 1
         db.commit()
     db.refresh(user)
     return user

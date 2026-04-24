@@ -45,8 +45,10 @@ def authorize_page(
     })
 
 
+from app.utils.rate_limit import rate_limiter
+
 # ── POST /authorize ────────────────────────────────────────────
-@router.post("/authorize", response_class=HTMLResponse)
+@router.post("/authorize", response_class=HTMLResponse, dependencies=[Depends(rate_limiter)])
 def authorize_submit(
     request: Request,
     app_id: int = Form(...),
@@ -98,7 +100,7 @@ class TokenRequest(BaseModel):
     redirect_uri: str
     api_key: str
 
-@router.post("/token")
-def token_exchange(data: TokenRequest, db: Session = Depends(get_db)):
+@router.post("/token", dependencies=[Depends(rate_limiter)])
+def token_exchange(request: Request, data: TokenRequest, db: Session = Depends(get_db)):
     """Exchange authorization code for JWT access token. Single-use, 5-minute expiry."""
     return exchange_code_for_token(db, data.code, data.app_id, data.redirect_uri, data.api_key)

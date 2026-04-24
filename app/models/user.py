@@ -15,6 +15,9 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     failed_login_attempts = Column(Integer, default=0)
     account_locked_until = Column(DateTime(timezone=True), nullable=True)
+    
+    # Phase 14: Security Optimization
+    perm_version = Column(Integer, default=1, nullable=False)
 
     # Phase 2: RBAC
     roles = relationship("Role", secondary=user_roles, back_populates="users")
