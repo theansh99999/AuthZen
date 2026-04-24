@@ -251,6 +251,9 @@
                       <span class="btn-text">Assign</span>
                       <span class="spinner-border spinner-border-sm d-none"></span>
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0" onclick="confirmDeleteUser({{ u.id }}, '{{ u.username }}')" title="Delete User">
+                      <i class="bi bi-trash3"></i>
+                    </button>
                   </form>
                 </td>
               </tr>
@@ -456,6 +459,27 @@ function confirmDeleteApp(appId, appName) {
       if (row) { row.style.transition = 'opacity 0.3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
       // Remove from filter dropdown
       document.querySelector(`#app-filter option[value="${appId}"]`)?.remove();
+    } catch(err) { showAlert(err.message, 'danger'); }
+  });
+}
+
+// ── Delete User ────────────────────────────────────────────────
+function confirmDeleteUser(userId, username) {
+  showConfirm('Delete User', `Permanently delete user "${username}"? This action cannot be undone.`, async () => {
+    try {
+      await apiCall(`/users/${userId}`, 'DELETE');
+      showAlert(`User "<strong>${username}</strong>" deleted successfully!`, 'warning');
+      const row = Array.from(document.querySelectorAll('.user-row')).find(r => r.innerHTML.includes(`#${userId}`));
+      if (row) { 
+        row.style.transition = 'opacity 0.3s'; 
+        row.style.opacity = '0'; 
+        setTimeout(() => {
+          row.remove();
+          // Update allUserRows array for search/pagination
+          allUserRows = Array.from(document.querySelectorAll('#user-table-body .user-row'));
+          renderPage();
+        }, 300); 
+      }
     } catch(err) { showAlert(err.message, 'danger'); }
   });
 }

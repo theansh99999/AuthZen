@@ -18,9 +18,11 @@ from app.core.dependencies import get_current_user, require_permission
 from app.schemas.user import UserOut
 from app.schemas.role import RoleOut
 from app.schemas.permission import PermissionOut
-from app.services.user_service import get_user_by_id, get_all_users
+from app.services.user_service import get_user_by_id, get_all_users, delete_user
 from app.services.role_service import assign_role_to_user, get_user_roles
 from app.models.user import User
+from fastapi import BackgroundTasks, Request
+from app.services.audit_service import log_action_bg
 
 router = APIRouter()
 
@@ -77,3 +79,17 @@ def assign_role(
     _: User = Depends(require_permission("write")),
 ):
     return assign_role_to_user(db, user_id, role_id)
+
+
+@router.delete("/{user_id}", status_code=200)
+def delete_user_endpoint(
+    user_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("delete")),
+):
+    """Delete a user."""
+    delete_user(db, user_id)
+    log_action_bg(background_tasks, request, current_user.id, "delete_user", {"deleted_user_id": user_id})
+    return {"message": "User deleted successfully."}

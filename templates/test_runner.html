@@ -1,533 +1,148 @@
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AuthZen — Test Runner</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <title>AuthZen - Internal Test Runner</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <style>
-    * { font-family: 'Inter', sans-serif; }
-    body { background: #0d1117; min-height: 100vh; }
-    .test-card { background: rgba(22,27,34,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem; margin-bottom: 0.75rem; transition: border-color 0.3s; }
-    .test-card.pass { border-color: rgba(34,197,94,0.5); }
-    .test-card.fail { border-color: rgba(239,68,68,0.5); }
-    .test-card.running { border-color: rgba(251,191,36,0.5); }
-    .badge-pass { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-    .badge-fail { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-    .badge-skip { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
-    .badge-run  { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
-    .log-box { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 0.75rem; font-family: 'Courier New', monospace; font-size: 0.75rem; max-height: 120px; overflow-y: auto; color: #58a6ff; margin-top: 0.5rem; }
-    .stat-num { font-size: 2rem; font-weight: 700; }
-    .navbar-brand { font-weight: 700; background: linear-gradient(135deg, #4f8ef7, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    #progress-bar { transition: width 0.3s ease; }
+    body { background-color: #0d1117; color: #c9d1d9; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; min-height: 100vh; }
+    .card { background-color: #161b22; border-color: #30363d; margin-bottom: 1rem; }
+    .card-header { background-color: #21262d; border-bottom-color: #30363d; font-weight: 600; }
+    .pass { color: #3fb950; font-weight: bold; }
+    .fail { color: #f85149; font-weight: bold; }
+    .status-badge { display: inline-block; padding: 0.25em 0.6em; font-size: 0.85em; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: 0.375rem; }
+    .status-running { background-color: #1f6feb; color: white; }
+    .status-passed { background-color: #238636; color: white; }
+    .status-failed { background-color: #da3633; color: white; }
   </style>
 </head>
 <body>
-
 <nav class="navbar sticky-top" style="background:rgba(13,17,23,0.97);border-bottom:1px solid rgba(255,255,255,0.08);">
   <div class="container">
-    <span class="navbar-brand"><i class="bi bi-shield-lock-fill me-2"></i>AuthZen Test Runner</span>
-    <div class="d-flex gap-2">
-      <a href="/dashboard" class="btn btn-sm btn-outline-secondary">Dashboard</a>
-      <button id="run-all-btn" class="btn btn-sm btn-primary" onclick="runAll()">
-        <i class="bi bi-play-fill me-1"></i>Run All Tests
-      </button>
-    </div>
+    <span class="navbar-brand text-light fw-bold"><i class="bi bi-shield-lock-fill me-2 text-primary"></i>AuthZen Test Runner</span>
+    <a href="/dashboard" class="btn btn-sm btn-outline-secondary">Back to Dashboard</a>
   </div>
 </nav>
 
-<div class="container py-4">
-
-  <!-- Config -->
-  <div class="test-card mb-4">
-    <h6 class="fw-semibold mb-3"><i class="bi bi-gear-fill text-warning me-2"></i>Test Configuration</h6>
-    <div class="row g-2">
-      <div class="col-md-4"><label class="form-label text-secondary" style="font-size:0.8rem;">Test Email</label>
-        <input id="cfg-email" class="form-control form-control-sm bg-dark text-light border-secondary" value="testuser_runner@iam.dev"></div>
-      <div class="col-md-3"><label class="form-label text-secondary" style="font-size:0.8rem;">Password</label>
-        <input id="cfg-pass" class="form-control form-control-sm bg-dark text-light border-secondary" value="TestPass@123"></div>
-      <div class="col-md-3"><label class="form-label text-secondary" style="font-size:0.8rem;">API Key</label>
-        <input id="cfg-apikey" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="your-api-key"></div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-sm btn-outline-info w-100" onclick="resetConfig()"><i class="bi bi-arrow-clockwise"></i> Reset</button>
-      </div>
+<div class="container py-5">
+  <div class="card shadow-lg mb-4">
+    <div class="card-body">
+      <h5 class="card-title fw-bold">Comprehensive Internal Test Suite</h5>
+      <p class="text-secondary mb-3">
+        This runner executes an isolated integration test entirely on the backend. 
+        It tests the full lifecycle (App Creation &rarr; User Registration &rarr; App-Scoped RBAC &rarr; OAuth2 Flow &rarr; Token Validation &rarr; Stale Token Invalidation) 
+        and then <strong>rolls back all changes</strong> so your database remains perfectly clean.
+      </p>
+      <button id="run-btn" class="btn btn-primary px-4 fw-bold">
+        <i class="bi bi-play-fill me-1"></i> Run Internal Test Suite
+      </button>
     </div>
   </div>
 
-  <!-- Summary -->
-  <div class="row g-3 mb-4" id="summary">
-    <div class="col-3 text-center"><div class="test-card"><div class="stat-num text-light" id="cnt-total">0</div><div class="text-secondary" style="font-size:0.8rem;">Total</div></div></div>
-    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#4ade80;" id="cnt-pass">0</div><div class="text-secondary" style="font-size:0.8rem;">Passed</div></div></div>
-    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#f87171;" id="cnt-fail">0</div><div class="text-secondary" style="font-size:0.8rem;">Failed</div></div></div>
-    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#fbbf24;" id="cnt-skip">0</div><div class="text-secondary" style="font-size:0.8rem;">Skipped</div></div></div>
+  <div id="results-container" class="d-none">
+    <div class="card shadow">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-light">Test Execution Report</h5>
+        <span id="overall-status" class="status-badge status-running">Running...</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-dark table-hover mb-0" style="--bs-table-bg: transparent;">
+          <thead>
+            <tr>
+              <th class="ps-4">Step</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="test-results">
+            <!-- Results injected here -->
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer" style="background:#0d1117; border-top:1px solid #30363d;" id="cleanup-status">
+        <span class="text-secondary">Cleanup Status: Waiting...</span>
+      </div>
+    </div>
   </div>
-
-  <!-- Progress Bar -->
-  <div class="progress mb-4" style="height:6px;background:rgba(255,255,255,0.08);">
-    <div id="progress-bar" class="progress-bar bg-success" style="width:0%;"></div>
-  </div>
-
-  <!-- Test Cases -->
-  <div id="test-list"></div>
-
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ── State ──────────────────────────────────────────────────────
-let state = { token: null, userId: null, roleId: null, permId: null, appId: null };
+document.getElementById('run-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('run-btn');
+  const container = document.getElementById('results-container');
+  const tbody = document.getElementById('test-results');
+  const overall = document.getElementById('overall-status');
+  const cleanup = document.getElementById('cleanup-status');
 
-function cfg(id) { return document.getElementById(id)?.value?.trim() || ''; }
-function resetConfig() {
-  document.getElementById('cfg-email').value = 'testuser_runner@iam.dev';
-  document.getElementById('cfg-pass').value = 'TestPass@123';
-}
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Executing...';
+  
+  container.classList.remove('d-none');
+  tbody.innerHTML = '<tr><td colspan="3" class="text-center text-secondary py-4">Running tests in isolated database transaction...</td></tr>';
+  overall.className = 'status-badge status-running';
+  overall.textContent = 'Running...';
+  cleanup.innerHTML = '<span class="text-secondary">Cleanup Status: Waiting...</span>';
 
-// ── Test Definitions ───────────────────────────────────────────
-const TESTS = [
-  {
-    id: 'signup', group: 'Phase 1 — Auth', name: 'POST /auth/signup',
-    desc: 'Register a new test user',
-    run: async () => {
-      const r = await fetch('/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ username: 'test_runner_user', email: cfg('cfg-email'), password: cfg('cfg-pass') }) });
-      const d = await r.json();
-      if (r.status === 201) return { ok: true, msg: `User created: ID ${d.id}` };
-      if (r.status === 400 && d.detail?.includes('already')) return { ok: true, msg: 'User already exists (OK)' };
-      throw new Error(d.detail || `HTTP ${r.status}`);
-    }
-  },
-  {
-    id: 'login', group: 'Phase 1 — Auth', name: 'POST /auth/login',
-    desc: 'Login and get JWT token',
-    run: async () => {
-      const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email: cfg('cfg-email'), password: cfg('cfg-pass') }) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-      state.token = d.access_token;
-      return { ok: true, msg: `Token received (${d.token_type})` };
-    }
-  },
-  {
-    id: 'login_fail', group: 'Phase 1 — Auth', name: 'POST /auth/login (wrong creds)',
-    desc: 'Login with wrong password should return 401',
-    run: async () => {
-      const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email: cfg('cfg-email'), password: 'WrongPass999!' }) });
-      if (r.status === 401) return { ok: true, msg: '401 returned correctly' };
-      throw new Error(`Expected 401, got ${r.status}`);
-    }
-  },
-  {
-    id: 'list_roles', group: 'Phase 2 — RBAC', name: 'GET /roles/',
-    desc: 'List all roles (requires auth)',
-    run: async () => {
-      if (!state.token) throw new Error('No token — run login first');
-      const r = await fetch('/roles/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      state.roleId = d.find(x => x.name === 'admin')?.id || d[0]?.id;
-      return { ok: true, msg: `${d.length} roles found. Admin ID: ${state.roleId}` };
-    }
-  },
-  {
-    id: 'create_role', group: 'Phase 2 — RBAC', name: 'POST /roles/',
-    desc: 'Create a test role (requires CSRF cookie)',
-    run: async () => {
-      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
-      if (!csrf) return { ok: false, msg: 'No CSRF token — visit /dashboard first to set cookie', skip: true };
-      const r = await fetch('/roles/', { method:'POST',
-        headers:{ 'Authorization': `Bearer ${state.token}`, 'Content-Type':'application/json', 'x-csrf-token': csrf },
-        body: JSON.stringify({ name: 'test_runner_role', description: 'Auto test role' }) });
-      const d = await r.json();
-      if (r.status === 201) { state.roleId = d.id; return { ok: true, msg: `Role created ID: ${d.id}` }; }
-      if (r.status === 400) return { ok: true, msg: 'Role already exists (OK)' };
-      throw new Error(d.detail || `HTTP ${r.status}`);
-    }
-  },
-  {
-    id: 'list_perms', group: 'Phase 2 — RBAC', name: 'GET /permissions/',
-    desc: 'List all permissions',
-    run: async () => {
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/permissions/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      state.permId = d.find(x => x.name === 'read')?.id || d[0]?.id;
-      return { ok: true, msg: `${d.length} permissions. Using ID: ${state.permId}` };
-    }
-  },
-  {
-    id: 'list_apps', group: 'Phase 4 — Multi-App', name: 'GET /apps/',
-    desc: 'List all applications',
-    run: async () => {
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/apps/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      state.appId = d[0]?.id;
-      return { ok: true, msg: `${d.length} apps. First ID: ${state.appId || 'none'}` };
-    }
-  },
-  {
-    id: 'validate_token', group: 'Phase 3 — IAM Service', name: 'POST /auth/validate-token',
-    desc: 'Validate JWT token via IAM API (needs API key)',
-    run: async () => {
-      const key = cfg('cfg-apikey');
-      if (!key) return { ok: false, msg: 'No API key configured', skip: true };
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/auth/validate-token', { method:'POST',
-        headers:{ 'x-api-key': key, 'Content-Type':'application/json' },
-        body: JSON.stringify({ token: state.token }) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      return { ok: d.is_valid, msg: d.is_valid ? `Valid. User: ${d.user?.username}` : `Invalid: ${d.error}` };
-    }
-  },
-  {
-    id: 'check_perm', group: 'Phase 3 — IAM Service', name: 'POST /auth/check-permission',
-    desc: 'Check if user has "read" permission',
-    run: async () => {
-      const key = cfg('cfg-apikey');
-      if (!key) return { ok: false, msg: 'No API key configured', skip: true };
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/auth/check-permission', { method:'POST',
-        headers:{ 'x-api-key': key, 'Content-Type':'application/json' },
-        body: JSON.stringify({ token: state.token, permission: 'read' }) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      return { ok: true, msg: `has_permission: ${d.has_permission}` };
-    }
-  },
-  {
-    id: 'audit_logs_me', group: 'Phase 7 — Audit Logs', name: 'GET /logs/me',
-    desc: 'Fetch my own audit logs',
-    run: async () => {
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/logs/me?limit=5', { headers:{ 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      return { ok: true, msg: `${d.length} log entries found` };
-    }
-  },
-  {
-    id: 'audit_logs_all', group: 'Phase 7 — Audit Logs', name: 'GET /logs/ (admin)',
-    desc: 'Fetch all system audit logs (admin only)',
-    run: async () => {
-      if (!state.token) throw new Error('No token');
-      const r = await fetch('/logs/?limit=5', { headers:{ 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (r.status === 403) return { ok: true, msg: '403 — not admin (expected for non-admin users)' };
-      if (!r.ok) throw new Error(d.detail);
-      return { ok: true, msg: `${d.length} system log entries` };
-    }
-  },
-  {
-    id: 'health', group: 'System', name: 'GET /health',
-    desc: 'Health check endpoint',
-    run: async () => {
-      const r = await fetch('/health');
-      const d = await r.json();
-      if (!r.ok) throw new Error('Health check failed');
-      return { ok: d.status === 'ok', msg: `${d.status} | v${d.version}` };
-    }
-  },
-  // ── Phase 8 — App Registration ────────────────────────────────
-  {
-    id: 'list_apps_p8', group: 'Phase 8 — App Registration', name: 'GET /apps/',
-    desc: 'List all registered applications',
-    run: async () => {
-      if (!state.token) throw new Error('No token — run login first');
-      const r = await fetch('/apps/', { headers: { 'Authorization': `Bearer ${state.token}` } });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail);
-      state.appId = d[0]?.id;
-      const hasApiKey = d.length ? (d[0].api_key !== undefined) : true;
-      return { ok: true, msg: `${d.length} apps found. api_key field present: ${hasApiKey}` };
-    }
-  },
-  {
-    id: 'create_app_p8', group: 'Phase 8 — App Registration', name: 'POST /apps/',
-    desc: 'Create app with auto-generated API key (requires CSRF)',
-    run: async () => {
-      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
-      if (!csrf) return { ok: false, msg: 'No CSRF token — visit /dashboard first', skip: true };
-      if (!state.token) throw new Error('No token');
-      const name = `test_app_${Date.now()}`;
-      const r = await fetch('/apps/', { method: 'POST',
-        headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json', 'x-csrf-token': csrf },
-        body: JSON.stringify({ name, description: 'Test app from runner', redirect_uri: '/health' }) });
-      const d = await r.json();
-      if (r.status === 403) throw new Error('403 — Need admin/write permission');
-      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-      state.appId = d.id;
-      state.apiKey = d.api_key;
-      const hasKey = d.api_key && d.api_key.startsWith('iam_');
-      return { ok: hasKey, msg: `App "${d.name}" created. Key: ${d.api_key?.slice(0,20)}... | redirect_uri: ${d.redirect_uri}` };
-    }
-  },
-  {
-    id: 'regen_key_p8', group: 'Phase 8 — App Registration', name: 'POST /apps/{id}/regenerate-key',
-    desc: 'Regenerate API key for an app (admin only)',
-    run: async () => {
-      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
-      if (!csrf) return { ok: false, msg: 'No CSRF token', skip: true };
-      if (!state.appId) return { ok: false, msg: 'No app created — run create_app test first', skip: true };
-      if (!state.token) throw new Error('No token');
-      const r = await fetch(`/apps/${state.appId}/regenerate-key`, { method: 'POST',
-        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf } });
-      if (r.status === 403) return { ok: true, msg: '403 — Not admin (expected for non-admin)' };
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-      state.apiKey = d.api_key;
-      return { ok: d.api_key?.startsWith('iam_'), msg: `New key: ${d.api_key?.slice(0,20)}...` };
-    }
-  },
-  // ── Phase 9 — OAuth2 Flow ─────────────────────────────────────
-  {
-    id: 'get_authorize_p9', group: 'Phase 9 — OAuth2 Auth Code', name: 'GET /authorize',
-    desc: 'Load the authorization page',
-    run: async () => {
-      if (!state.appId) return { ok: false, msg: 'No app created', skip: true };
-      const r = await fetch(`/authorize?app_id=${state.appId}&redirect_uri=/health&state=xyz123`);
-      const html = await r.text();
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const ok = html.includes('Authorize & Continue');
-      return { ok, msg: ok ? 'Auth page loaded successfully' : 'Auth page missing form' };
-    }
-  },
-  {
-    id: 'post_authorize_p9', group: 'Phase 9 — OAuth2 Auth Code', name: 'POST /authorize',
-    desc: 'Submit login to get auth code',
-    run: async () => {
-      if (!state.appId) return { ok: false, msg: 'No app created', skip: true };
-      
-      const formData = new URLSearchParams();
-      formData.append('app_id', state.appId);
-      formData.append('redirect_uri', '/health');
-      formData.append('state', 'xyz123');
-      formData.append('email', cfg('cfg-email'));
-      formData.append('password', cfg('cfg-pass'));
-
-      const r = await fetch('/authorize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
-      });
-      // It should follow redirect to /health?code=...&state=xyz123
-      if (!r.ok) throw new Error(`Failed to authorize: HTTP ${r.status}`);
-      const url = new URL(r.url);
-      const code = url.searchParams.get('code');
-      if (!code) throw new Error('No code found in redirect URL');
-      state.authCode = code;
-      return { ok: true, msg: `Received auth code: ${code.slice(0,10)}...` };
-    }
-  },
-  {
-    id: 'post_token_p10', group: 'Phase 10 — Secure Token Exchange', name: 'POST /token',
-    desc: 'Exchange code for JWT access token (Requires api_key)',
-    run: async () => {
-      if (!state.authCode) return { ok: false, msg: 'No auth code obtained', skip: true };
-      const r = await fetch('/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: state.authCode, app_id: state.appId, redirect_uri: '/health', api_key: state.apiKey })
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-      return { ok: !!d.access_token, msg: `Received JWT token! user_id: ${d.user_id}` };
-    }
-  },
-  {
-    id: 'signup_p13', group: 'Phase 13 — App Access Control', name: 'POST /auth/signup (temp user)',
-    desc: 'Create a temporary user with no roles',
-    run: async () => {
-      state.tempUserEmail = `temp_${Date.now()}@example.com`;
-      state.tempUserPass = 'password123';
-      const r = await fetch('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'TempUser', email: state.tempUserEmail, password: state.tempUserPass })
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-      state.tempUserId = d.id;
-      return { ok: true, msg: `Temp user created (ID: ${d.id})` };
-    }
-  },
-  {
-    id: 'post_authorize_no_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /authorize (No Role)',
-    desc: 'Attempt to authorize without a role for the app',
-    run: async () => {
-      if (!state.appId || !state.tempUserEmail) return { ok: false, msg: 'Missing app or temp user', skip: true };
-      
-      const formData = new URLSearchParams();
-      formData.append('app_id', state.appId);
-      formData.append('redirect_uri', '/health');
-      formData.append('state', 'xyz123');
-      formData.append('email', state.tempUserEmail);
-      formData.append('password', state.tempUserPass);
-
-      const r = await fetch('/authorize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
-      });
-      // Since access is denied, server returns 200 OK with the authorize.html rendering the error
-      if (r.status !== 200) throw new Error(`Expected 200, got ${r.status}`);
-      const text = await r.text();
-      const blocked = text.includes('Access Denied: You do not have permission to access this application.');
-      return { ok: blocked, msg: blocked ? 'Correctly denied access!' : 'Access was not denied' };
-    }
-  },
-  {
-    id: 'assign_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /apps/.../roles',
-    desc: 'Assign user role to the temp user for the app',
-    run: async () => {
-      if (!state.appId || !state.tempUserId) return { ok: false, msg: 'Missing app or temp user', skip: true };
-      
-      const rolesRes = await fetch('/roles/', { headers: { 'Authorization': `Bearer ${state.token}` } });
-      const roles = await rolesRes.json();
-      const userRole = roles.find(r => r.name === 'user');
-      if (!userRole) throw new Error("Could not find 'user' role");
-      
-      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
-      
-      const r = await fetch(`/apps/${state.appId}/users/${state.tempUserId}/roles/${userRole.id}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf }
-      });
-      
-      if (!r.ok) {
-         const d = await r.json();
-         throw new Error(d.detail || `HTTP ${r.status}`);
-      }
-      return { ok: true, msg: 'Assigned role successfully' };
-    }
-  },
-  {
-    id: 'post_authorize_with_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /authorize (With Role)',
-    desc: 'Attempt to authorize WITH a role for the app',
-    run: async () => {
-      if (!state.appId || !state.tempUserEmail) return { ok: false, msg: 'Missing app or temp user', skip: true };
-      
-      const formData = new URLSearchParams();
-      formData.append('app_id', state.appId);
-      formData.append('redirect_uri', '/health');
-      formData.append('state', 'xyz123');
-      formData.append('email', state.tempUserEmail);
-      formData.append('password', state.tempUserPass);
-
-      const r = await fetch('/authorize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
-      });
-      // It should follow redirect to /health?code=...
-      if (!r.ok) throw new Error(`Failed to authorize: HTTP ${r.status}`);
-      const url = new URL(r.url);
-      const code = url.searchParams.get('code');
-      if (!code) throw new Error('No code found in redirect URL');
-      return { ok: true, msg: `Access allowed! Code: ${code.slice(0,10)}...` };
-    }
-  },
-  {
-    id: 'delete_app_p8', group: 'Phase 8 — App Registration', name: 'DELETE /apps/{id}',
-    desc: 'Delete the test app (admin only)',
-    run: async () => {
-      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
-      if (!csrf) return { ok: false, msg: 'No CSRF token', skip: true };
-      if (!state.appId) return { ok: false, msg: 'No app to delete', skip: true };
-      if (!state.token) throw new Error('No token');
-      const r = await fetch(`/apps/${state.appId}`, { method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf } });
-      if (r.status === 204) { state.appId = null; return { ok: true, msg: 'App deleted (204 No Content)' }; }
-      if (r.status === 403) return { ok: true, msg: '403 — Not admin (expected for non-admin)' };
-      throw new Error(`Unexpected status: ${r.status}`);
-    }
-  },
-];
-
-// ── Render Tests ───────────────────────────────────────────────
-function renderTests() {
-  const list = document.getElementById('test-list');
-  let lastGroup = '';
-  list.innerHTML = '';
-  TESTS.forEach(t => {
-    if (t.group !== lastGroup) {
-      lastGroup = t.group;
-      list.innerHTML += `<div class="text-secondary fw-semibold mb-2 mt-3" style="font-size:0.8rem;letter-spacing:0.5px;">${t.group.toUpperCase()}</div>`;
-    }
-    list.innerHTML += `
-      <div class="test-card" id="card-${t.id}">
-        <div class="d-flex align-items-center justify-content-between">
-          <div>
-            <code style="color:#e6edf3;font-size:0.85rem;">${t.name}</code>
-            <span class="text-secondary ms-2" style="font-size:0.78rem;">${t.desc}</span>
-          </div>
-          <div class="d-flex gap-2 align-items-center">
-            <span class="badge badge-skip" id="badge-${t.id}">PENDING</span>
-            <button class="btn btn-sm btn-outline-secondary py-0" onclick="runSingle('${t.id}')">Run</button>
-          </div>
-        </div>
-        <div id="log-${t.id}" class="log-box d-none"></div>
-      </div>`;
-  });
-}
-
-// ── Run Single Test ─────────────────────────────────────────────
-async function runSingle(id) {
-  const test = TESTS.find(t => t.id === id);
-  const card = document.getElementById(`card-${id}`);
-  const badge = document.getElementById(`badge-${id}`);
-  const log = document.getElementById(`log-${id}`);
-  card.className = 'test-card running';
-  badge.className = 'badge badge-run'; badge.textContent = 'RUNNING';
-  log.className = 'log-box'; log.textContent = '⏳ Running...';
   try {
-    const result = await test.run();
-    if (result.skip) {
-      card.className = 'test-card'; badge.className = 'badge badge-skip'; badge.textContent = 'SKIPPED';
-      log.textContent = `⏭️  ${result.msg}`;
-      return 'skip';
+    const res = await fetch('/api/run-internal-tests');
+    const data = await res.json();
+    
+    tbody.innerHTML = '';
+    
+    if (data.tests && data.tests.length > 0) {
+      // Group tests by Phase
+      const groups = {};
+      data.tests.forEach(t => {
+        const g = t.group || 'Other';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(t);
+      });
+
+      for (const [groupName, tests] of Object.entries(groups)) {
+        // Group Header
+        const headerTr = document.createElement('tr');
+        headerTr.innerHTML = `<td colspan="3" class="bg-dark text-info fw-bold py-2 ps-3" style="border-top:1px solid #30363d;">
+            <i class="bi bi-box-seam me-2"></i>${groupName}
+          </td>`;
+        tbody.appendChild(headerTr);
+
+        // Tests in group
+        tests.forEach(t => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="ps-4 fw-medium text-light" style="padding-left:2.5rem !important;">
+              <i class="bi bi-arrow-return-right text-secondary me-2"></i>${t.name}
+            </td>
+            <td><span class="${t.status === 'PASS' ? 'pass' : 'fail'}">${t.status}</span></td>
+            <td class="text-secondary" style="font-size:0.9rem;">${t.error || 'Passed internal validation'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    } else {
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">Execution Failed: ${data.error || 'Unknown error'}</td></tr>`;
     }
-    card.className = `test-card ${result.ok ? 'pass' : 'fail'}`;
-    badge.className = `badge ${result.ok ? 'badge-pass' : 'badge-fail'}`;
-    badge.textContent = result.ok ? 'PASS' : 'FAIL';
-    log.textContent = `${result.ok ? '✅' : '❌'} ${result.msg}`;
-    return result.ok ? 'pass' : 'fail';
-  } catch(err) {
-    card.className = 'test-card fail'; badge.className = 'badge badge-fail'; badge.textContent = 'FAIL';
-    log.textContent = `❌ Error: ${err.message}`;
-    return 'fail';
-  }
-}
 
-// ── Run All ─────────────────────────────────────────────────────
-async function runAll() {
-  const btn = document.getElementById('run-all-btn');
-  btn.disabled = true; btn.textContent = 'Running...';
-  let pass = 0, fail = 0, skip = 0;
-  document.getElementById('cnt-total').textContent = TESTS.length;
-  for (let i = 0; i < TESTS.length; i++) {
-    const result = await runSingle(TESTS[i].id);
-    if (result === 'pass') pass++;
-    else if (result === 'fail') fail++;
-    else skip++;
-    document.getElementById('cnt-pass').textContent = pass;
-    document.getElementById('cnt-fail').textContent = fail;
-    document.getElementById('cnt-skip').textContent = skip;
-    document.getElementById('progress-bar').style.width = `${((i+1)/TESTS.length)*100}%`;
-    document.getElementById('progress-bar').className = `progress-bar ${fail > 0 ? 'bg-danger' : 'bg-success'}`;
-    await new Promise(r => setTimeout(r, 200));
-  }
-  btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Run All Tests';
-}
+    if (data.status === 'ALL PASSED') {
+      overall.className = 'status-badge status-passed';
+      overall.textContent = 'All Passed!';
+    } else {
+      overall.className = 'status-badge status-failed';
+      overall.textContent = data.status || 'Failed';
+    }
 
-renderTests();
+    cleanup.innerHTML = `<strong>Cleanup Status:</strong> ${data.cleanup === 'SUCCESS' ? '<span class="pass">SUCCESS (DB Clean)</span>' : '<span class="fail">FAILED: ' + data.cleanup + '</span>'}`;
+
+  } catch (err) {
+    overall.className = 'status-badge status-failed';
+    overall.textContent = 'Network Error';
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">${err.message}</td></tr>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-fill me-1"></i> Run Internal Test Suite Again';
+  }
+});
 </script>
 </body>
 </html>
