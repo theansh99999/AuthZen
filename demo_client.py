@@ -139,10 +139,14 @@ def dashboard(request: Request):
         with urllib.request.urlopen(val_req) as response:
             user_data = json.loads(response.read().decode())
             
-        # Check specific permission via AuthZen IAM
+        # Check specific permission via AuthZen IAM for this specific app context
         perm_req = urllib.request.Request(
             f"{AUTHZEN_URL}/auth/check-permission",
-            data=json.dumps({"token": token, "permission": "read"}).encode(),
+            data=json.dumps({
+                "token": token, 
+                "permission": "read", 
+                "app_id": CLIENT_APP_ID
+            }).encode(),
             headers={"Content-Type": "application/json", "x-api-key": CLIENT_API_KEY}
         )
         with urllib.request.urlopen(perm_req) as response:
@@ -168,16 +172,71 @@ def dashboard(request: Request):
         </div>
         
         <div class="mt-3">
-          <label class="text-secondary" style="font-size:0.8rem;">IAM Permission Check ('read')</label>
-          <div class="p-2 rounded {'bg-success bg-opacity-10 text-success' if perm_data['has_permission'] else 'bg-danger bg-opacity-10 text-danger'}">
-            <i class="bi bi-shield-lock-fill me-2"></i>Has 'read' permission: <strong>{perm_data['has_permission']}</strong>
+          <label class="text-secondary" style="font-size:0.8rem;">IAM Contextual Permission Check</label>
+          <div class="p-2 rounded mb-2 {'bg-success bg-opacity-10 text-success' if perm_data['has_permission'] else 'bg-danger bg-opacity-10 text-danger'}">
+            <i class="bi bi-shield-lock-fill me-2"></i>Has 'read' permission for App ID {CLIENT_APP_ID}: <strong>{perm_data['has_permission']}</strong>
           </div>
         </div>
+
+        <hr class="border-secondary my-4">
+        
+        <h6 class="mb-3">Protected Action Test</h6>
+        <p class="text-secondary" style="font-size:0.85rem;">This action requires the <strong>'write'</strong> permission scoped specifically to this App ID.</p>
+        <form method="POST" action="/perform-action">
+          <button type="submit" class="btn btn-warning"><i class="bi bi-pencil-square me-2"></i>Execute Write Action</button>
+        </form>
         
       </div>
     </div>
     """
     return HTML_BASE.format(content=content)
+
+@app.post("/perform-action", response_class=HTMLResponse)
+def perform_protected_action(request: Request):
+    """Step 4: Strict RBAC Enforcement. External app calls IAM BEFORE allowing action."""
+    token = request.cookies.get("demo_token")
+    if not token:
+        return RedirectResponse("/")
+
+    # CALL IAM TO VERIFY IF USER HAS 'write' PERMISSION IN THIS APP'S CONTEXT
+    try:
+        perm_req = urllib.request.Request(
+            f"{AUTHZEN_URL}/auth/check-permission",
+            data=json.dumps({
+                "token": token, 
+                "permission": "write", 
+                "app_id": CLIENT_APP_ID
+            }).encode(),
+            headers={"Content-Type": "application/json", "x-api-key": CLIENT_API_KEY}
+        )
+        with urllib.request.urlopen(perm_req) as response:
+            perm_data = json.loads(response.read().decode())
+            
+        if not perm_data.get("has_permission"):
+            # Action Blocked!
+            content = f"""
+            <div class="text-center mt-5">
+              <h1 class="text-danger"><i class="bi bi-shield-slash-fill"></i></h1>
+              <h3 class="text-light">Access Denied</h3>
+              <p class="text-secondary">AuthZen IAM denied your request. You lack the 'write' permission for App ID {CLIENT_APP_ID}.</p>
+              <a href="/dashboard" class="btn btn-outline-secondary mt-3">Back to Dashboard</a>
+            </div>
+            """
+            return HTML_BASE.format(content=content)
+            
+        # Action Allowed!
+        content = f"""
+        <div class="text-center mt-5">
+          <h1 class="text-success"><i class="bi bi-check-circle-fill"></i></h1>
+          <h3 class="text-light">Action Successful!</h3>
+          <p class="text-secondary">AuthZen IAM verified your 'write' permission for App ID {CLIENT_APP_ID}. The action was performed.</p>
+          <a href="/dashboard" class="btn btn-outline-secondary mt-3">Back to Dashboard</a>
+        </div>
+        """
+        return HTML_BASE.format(content=content)
+        
+    except urllib.error.HTTPError as e:
+        return HTMLResponse(HTML_BASE.format(content=f"<h3 class='text-danger'>AuthZen IAM Error</h3><pre>{e.read().decode()}</pre>"))
 
 @app.get("/logout")
 def logout():

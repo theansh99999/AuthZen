@@ -23,7 +23,7 @@ A production-ready, multi-tenant **IAM (Identity & Access Management)** service 
 | Phase 9 | Redirect-based Authentication (/authorize flow) | ✅ |
 | Phase 10 | Secure Token Exchange (code → JWT) | ✅ |
 | Phase 11 | External App Integration Flow | ✅ |
-| Phase 12 | App-scoped RBAC Enforcement | ⏳ Planned |
+| Phase 12 | App-scoped RBAC Enforcement | ✅ |
 | Phase 13 | App Access Control (no role → no entry) | ⏳Planned |
 | Phase 14 | Security & Optimization (perm_version, rate limit, validation) | ⏳ Planned |
 
