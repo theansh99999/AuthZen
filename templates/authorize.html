@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Authorize — {{ app.name if app else 'Error' }}{% endblock %}
+{% block body %}
+<div class="auth-wrapper" style="background:radial-gradient(ellipse at 40% 30%, #1a2a4a 0%, #0d1117 70%);">
+  <div class="auth-card" style="max-width:440px;">
+
+    {% if not app %}
+    <!-- Error state -->
+    <div class="text-center mb-4">
+      <div style="font-size:2rem;color:#f87171;"><i class="bi bi-shield-x-fill"></i></div>
+      <h5 class="text-light mt-2">Authorization Error</h5>
+    </div>
+    <div class="alert alert-danger" role="alert">
+      <i class="bi bi-exclamation-circle-fill me-2"></i>{{ error }}
+    </div>
+    <a href="/" class="btn btn-outline-secondary btn-sm w-100">Go Back</a>
+
+    {% else %}
+    <!-- App branding -->
+    <div class="text-center mb-4">
+      <div class="auth-logo mb-1"><i class="bi bi-shield-lock-fill me-2"></i>AuthZen</div>
+      <div class="mt-3 p-3" style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:10px;">
+        <div class="fw-semibold text-light" style="font-size:1rem;">{{ app.name }}</div>
+        <div class="text-secondary mt-1" style="font-size:0.8rem;">{{ app.description or 'This application wants to access your account' }}</div>
+      </div>
+      <p class="text-secondary mt-3" style="font-size:0.82rem;">
+        <i class="bi bi-lock-fill text-success me-1"></i>Sign in to grant access
+      </p>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Login Form -->
+    <form method="POST" action="/authorize">
+      <input type="hidden" name="app_id" value="{{ app_id }}">
+      <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+      {% if state %}<input type="hidden" name="state" value="{{ state }}">{% endif %}
+
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+          <input type="email" name="email" class="form-control" placeholder="your@email.com" required autofocus>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+          <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100 mb-3">
+        <i class="bi bi-box-arrow-in-right me-2"></i>Authorize & Continue
+      </button>
+    </form>
+
+    <!-- What will be shared -->
+    <div class="p-3 mt-2" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+      <div class="text-secondary mb-2" style="font-size:0.75rem;font-weight:600;letter-spacing:0.5px;">WHAT WILL BE SHARED</div>
+      <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.82rem;">
+        <i class="bi bi-check-circle-fill text-success"></i><span class="text-light">Your identity (username, email)</span>
+      </div>
+      <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.82rem;">
+        <i class="bi bi-check-circle-fill text-success"></i><span class="text-light">Your roles within this application</span>
+      </div>
+      <div class="d-flex align-items-center gap-2" style="font-size:0.82rem;">
+        <i class="bi bi-x-circle-fill text-secondary"></i><span class="text-secondary">Your password (never shared)</span>
+      </div>
+    </div>
+
+    <div class="text-center mt-3 text-secondary" style="font-size:0.75rem;">
+      You will be redirected to: <code style="color:#58a6ff;">{{ redirect_uri }}</code>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

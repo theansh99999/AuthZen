@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.routes import auth, users, roles, permissions, applications, audit_logs
 from app.routes import pages
+from app.routes import oauth
 from testing.testing_routes import router as testing_router
 from app.db.session import engine, SessionLocal
 from app.db.base import Base
@@ -122,6 +123,7 @@ app.add_middleware(
 
 # ── Web (Jinja2) Routes ───────────────────────────────────────
 app.include_router(pages.router, tags=["Web UI"])
+app.include_router(oauth.router, tags=["OAuth2"])
 app.include_router(testing_router, tags=["Testing"])
 
 # ── API Routes ────────────────────────────────────────────────
