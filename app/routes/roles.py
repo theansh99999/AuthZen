@@ -17,7 +17,7 @@ from app.core.dependencies import require_permission, get_current_user, verify_c
 from app.schemas.role import RoleCreate, RoleOut
 from app.services.role_service import (
     create_role, get_all_roles, get_role_by_id,
-    assign_permission_to_role, remove_permission_from_role,
+    assign_permission_to_role, remove_permission_from_role, delete_role,
 )
 from app.services.audit_service import log_action_bg
 
@@ -26,10 +26,11 @@ router = APIRouter()
 
 @router.get("/", response_model=list[RoleOut])
 def list_roles(
+    app_id: int | None = None,
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    return get_all_roles(db)
+    return get_all_roles(db, app_id=app_id)
 
 
 @router.post("/", response_model=RoleOut, status_code=201, dependencies=[Depends(verify_csrf_token)])
@@ -75,3 +76,15 @@ def remove_perm_from_role(
     role = remove_permission_from_role(db, role_id, permission_id)
     log_action_bg(background_tasks, request, current_user.id, "remove_permission", {"role_id": role_id, "permission_id": permission_id})
     return role
+
+
+@router.delete("/{role_id}", status_code=204, dependencies=[Depends(verify_csrf_token)])
+def delete_role_endpoint(
+    role_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("delete")),
+):
+    delete_role(db, role_id)
+    log_action_bg(background_tasks, request, current_user.id, "delete_role", {"role_id": role_id})

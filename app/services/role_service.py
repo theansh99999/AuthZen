@@ -20,8 +20,11 @@ def create_role(db: Session, data: RoleCreate) -> Role:
     return role
 
 
-def get_all_roles(db: Session) -> list[Role]:
-    return db.query(Role).options(selectinload(Role.permissions)).all()
+def get_all_roles(db: Session, app_id: int | None = None) -> list[Role]:
+    query = db.query(Role).options(selectinload(Role.permissions))
+    if app_id is not None:
+        query = query.filter(Role.app_id == app_id)
+    return query.all()
 
 
 def get_role_by_id(db: Session, role_id: int) -> Role:
@@ -79,3 +82,9 @@ def get_user_roles(db: Session, user_id: int) -> list[Role]:
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
     return user.roles
+
+
+def delete_role(db: Session, role_id: int) -> None:
+    role = get_role_by_id(db, role_id)
+    db.delete(role)
+    db.commit()

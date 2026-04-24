@@ -22,6 +22,24 @@ A production-ready, multi-tenant **IAM (Identity & Access Management)** service 
 | Phase 8 | OAuth2 / SSO | ⏳ Planned |
 
 ---
+## 🧩 Project Phases
+
+| Phase | Feature | Status |
+|------|--------|--------|
+| Phase 1 | Authentication (JWT) | ✅ |
+| Phase 2 | RBAC (Roles & Permissions) | ✅ |
+| Phase 3 | IAM APIs (validate-token, check-permission) | ✅ |
+| Phase 4 | Multi-Application Support | ✅ |
+| Phase 5 | Advanced Security (JWT, Lock, Rate Limit basics) | ✅ |
+| Phase 6 | Admin Dashboard (UI + Management) | ✅ |
+| Phase 7 | Audit Logs & Tracking | ✅ |
+| Phase 8 | Application Registration (app_id, api_key, redirect_uri) | ⏳ Planned |
+| Phase 9 | Redirect-based Authentication (/authorize flow) | ⏳ Planned |
+| Phase 10 | Secure Token Exchange (code → JWT) | ⏳ Planned |
+| Phase 11 | External App Integration Flow | ⏳ Planned |
+| Phase 12 | App-scoped RBAC Enforcement | ⏳ Planned |
+| Phase 13 | App Access Control (no role → no entry) | ⏳Planned |
+| Phase 14 | Security & Optimization (perm_version, rate limit, validation) | ⏳ Planned |
 
 ## ✨ Features (So Far)
 

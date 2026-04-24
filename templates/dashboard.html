@@ -1,270 +1,552 @@
 {% extends "base.html" %}
-
 {% block title %}Admin Dashboard{% endblock %}
-
-{% block head %}
-  <meta name="csrf-token" content="{{ csrf_token }}">
-{% endblock %}
-
+{% block head %}<meta name="csrf-token" content="{{ csrf_token }}">{% endblock %}
 {% block body %}
-<nav class="navbar navbar-expand-lg sticky-top" style="background: rgba(13,17,23,0.97); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
-  <div class="container">
-    <a class="navbar-brand" href="/dashboard">
-      <i class="bi bi-shield-lock-fill me-2"></i>AuthZen Admin
-    </a>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg sticky-top" style="background:rgba(13,17,23,0.97);border-bottom:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(10px);">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="/dashboard"><i class="bi bi-shield-lock-fill me-2"></i>AuthZen Admin</a>
     <div class="d-flex align-items-center gap-3">
-      <span class="text-secondary" style="font-size:0.85rem;">
-        <i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem;"></i>
-        <strong class="text-light">{{ user.username }}</strong>
-      </span>
+      <span class="text-secondary" style="font-size:0.82rem;"><i class="bi bi-circle-fill text-success me-1" style="font-size:0.45rem;"></i><strong class="text-light">{{ user.username }}</strong></span>
       <a href="/logout" class="btn btn-sm btn-outline-danger">Logout</a>
     </div>
   </div>
 </nav>
 
-<div class="container mt-4">
-  <div class="d-flex align-items-center justify-content-between p-3" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
-    <h5 class="mb-0 fw-semibold"><i class="bi bi-funnel-fill text-warning me-2"></i>Global App Filter</h5>
-    <form id="app-filter-form" method="GET" action="/dashboard" class="d-flex gap-2">
-      <select name="app_id" class="form-select bg-dark text-light border-secondary" onchange="this.form.submit()">
-        <option value="">-- All Applications (Global) --</option>
-        {% for app in all_apps %}
-          <option value="{{ app.id }}" {% if selected_app_id == app.id %}selected{% endif %}>{{ app.name }}</option>
-        {% endfor %}
-      </select>
-    </form>
+<!-- Alert Stack -->
+<div id="alert-stack" class="position-fixed top-0 end-0 p-3" style="z-index:9999;margin-top:70px;min-width:320px;max-width:400px;"></div>
+
+<!-- Confirm Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#161b22;border:1px solid rgba(255,255,255,0.1);">
+      <div class="modal-header border-0"><h6 class="modal-title text-light" id="confirmTitle">Confirm Action</h6></div>
+      <div class="modal-body text-secondary" id="confirmBody">Are you sure?</div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-danger" id="confirmOkBtn">Delete</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<div id="alert-container" class="container mt-3"></div>
+<div class="container-fluid px-4 py-3">
 
-<div class="container py-4">
-  <div class="row g-4 mb-4">
-    <div class="col-md-6">
-      <div class="stat-card h-100">
-        <h6 class="mb-3 fw-semibold"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Create New Role</h6>
-        <form onsubmit="handleCreateRole(event)">
-          <div class="mb-2"><input type="text" id="role-name" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Role Name" required></div>
-          <div class="mb-2"><input type="text" id="role-desc" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Description"></div>
-          <div class="mb-2">
-            <select id="role-app" class="form-select form-select-sm bg-dark text-light border-secondary">
-              <option value="">Global (No App)</option>
-              {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
-            </select>
-          </div>
-          <button type="submit" class="btn btn-sm btn-primary w-100">Create Role</button>
-        </form>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="stat-card h-100">
-        <h6 class="mb-3 fw-semibold"><i class="bi bi-plus-circle-fill text-success me-2"></i>Create New Permission</h6>
-        <form onsubmit="handleCreatePermission(event)">
-          <div class="mb-2"><input type="text" id="perm-name" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Permission Name" required></div>
-          <div class="mb-2"><input type="text" id="perm-desc" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Description"></div>
-          <div class="mb-2">
-            <select id="perm-app" class="form-select form-select-sm bg-dark text-light border-secondary">
-              <option value="">Global (No App)</option>
-              {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
-            </select>
-          </div>
-          <button type="submit" class="btn btn-sm btn-success w-100">Create Permission</button>
-        </form>
-      </div>
-    </div>
+  <!-- App Filter Bar -->
+  <div class="d-flex align-items-center gap-3 p-3 mb-4" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;">
+    <i class="bi bi-funnel-fill text-warning"></i>
+    <span class="fw-semibold text-light me-2">App Filter:</span>
+    <select id="app-filter" class="form-select form-select-sm bg-dark text-light border-secondary" style="max-width:250px;">
+      <option value="">-- All Applications --</option>
+      {% for app in all_apps %}
+      <option value="{{ app.id }}" {% if selected_app_id == app.id %}selected{% endif %}>{{ app.name }}</option>
+      {% endfor %}
+    </select>
+    <span id="filter-label" class="text-secondary" style="font-size:0.8rem;"></span>
   </div>
 
-  <div class="stat-card mb-4">
-    <div class="d-flex align-items-center gap-2 mb-3">
-      <i class="bi bi-shield-fill" style="color: #a78bfa;"></i>
-      <h6 class="mb-0 fw-semibold">Available Roles & Permissions Mapping</h6>
+  <div class="row g-4">
+
+    <!-- LEFT COLUMN -->
+    <div class="col-lg-4">
+
+      <!-- Create Role -->
+      <div class="stat-card mb-4">
+        <h6 class="mb-3 fw-semibold"><i class="bi bi-plus-circle text-primary me-2"></i>Create Role</h6>
+        <form id="create-role-form">
+          <input type="text" id="role-name" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Role Name" required>
+          <input type="text" id="role-desc" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Description (optional)">
+          <select id="role-app" class="form-select form-select-sm bg-dark text-light border-secondary mb-2">
+            <option value="">Global (No App)</option>
+            {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
+          </select>
+          <button type="submit" id="btn-create-role" class="btn btn-sm btn-primary w-100">
+            <span class="btn-text">Create Role</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Create Permission -->
+      <div class="stat-card mb-4">
+        <h6 class="mb-3 fw-semibold"><i class="bi bi-plus-circle text-success me-2"></i>Create Permission</h6>
+        <form id="create-perm-form">
+          <input type="text" id="perm-name" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Permission Name" required>
+          <input type="text" id="perm-desc" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Description (optional)">
+          <select id="perm-app" class="form-select form-select-sm bg-dark text-light border-secondary mb-2">
+            <option value="">Global (No App)</option>
+            {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
+          </select>
+          <button type="submit" id="btn-create-perm" class="btn btn-sm btn-success w-100">
+            <span class="btn-text">Create Permission</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+        </form>
+      </div>
+
     </div>
-    <div class="row g-3">
-      {% for role in all_roles %}
-      <div class="col-md-6">
-        <div class="p-3" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px;">
-          <div class="fw-semibold mb-2" style="color:#c4b5fd;">
-            {{ role.name }} <span class="text-secondary fw-normal ms-1" style="font-size:0.8rem;">[App ID: {{ role.app_id or 'Global' }}]</span>
-          </div>
-          <div class="d-flex flex-wrap gap-1 mb-3">
-            {% if role.permissions %}
-              {% for perm in role.permissions %}
-                <span class="badge d-flex align-items-center gap-1" style="background:rgba(34,197,94,0.1); color:#4ade80; border:1px solid rgba(34,197,94,0.2);">
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-lg-8">
+
+      <!-- Roles & Permissions Mapping -->
+      <div class="stat-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-fill me-2" style="color:#a78bfa;"></i>Roles & Permissions</h6>
+          <span class="text-secondary" style="font-size:0.78rem;">Filtered by selected app</span>
+        </div>
+        <div id="roles-container" class="row g-3">
+          {% for role in all_roles %}
+          <div class="col-md-6" id="role-card-{{ role.id }}">
+            <div class="p-3" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fw-semibold" style="color:#c4b5fd;">{{ role.name }}</span>
+                <div class="d-flex gap-1">
+                  <span class="badge bg-secondary" style="font-size:0.7rem;">{{ role.app_id or 'Global' }}</span>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size:0.7rem;" onclick="confirmDeleteRole({{ role.id }}, '{{ role.name }}')">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-1 mb-2" id="perms-of-role-{{ role.id }}">
+                {% for perm in role.permissions %}
+                <span class="badge d-flex align-items-center gap-1" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);">
                   {{ perm.name }}
-                  <button type="button" class="btn-close btn-close-white" style="font-size:0.5rem;" onclick="removePermission({{ role.id }}, {{ perm.id }})"></button>
+                  <i class="bi bi-x-lg ms-1" style="cursor:pointer;font-size:0.6rem;" onclick="confirmRemovePerm({{ role.id }}, {{ perm.id }}, '{{ perm.name }}', this)"></i>
                 </span>
-              {% endfor %}
-            {% else %}
-              <span class="text-secondary" style="font-size:0.8rem;">No permissions</span>
-            {% endif %}
+                {% else %}
+                <span class="text-secondary" style="font-size:0.78rem;">No permissions</span>
+                {% endfor %}
+              </div>
+              <form onsubmit="assignPermission(event, {{ role.id }}, {{ role.app_id or 'null' }})" class="d-flex gap-2">
+                <select name="permission_id" class="form-select form-select-sm bg-dark text-light border-secondary perm-dropdown" data-role-app="{{ role.app_id or '' }}" required>
+                  <option value="">Add Permission</option>
+                  {% for p in all_permissions %}
+                  <option value="{{ p.id }}" data-app="{{ p.app_id or '' }}">{{ p.name }} ({{ p.app_id or 'Global' }})</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-outline-success flex-shrink-0">
+                  <span class="btn-text">+</span>
+                  <span class="spinner-border spinner-border-sm d-none"></span>
+                </button>
+              </form>
+            </div>
           </div>
-          <form onsubmit="assignPermission(event, {{ role.id }})" class="d-flex gap-2">
-            <select name="permission_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
-              <option value="">Add Perm</option>
-              {% for p in all_permissions %}
-                <option value="{{ p.id }}">{{ p.name }} (App: {{ p.app_id or 'Global' }})</option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-sm btn-outline-success">Assign</button>
-          </form>
+          {% else %}
+          <div class="col-12 text-secondary text-center py-3">No roles found for the selected filter.</div>
+          {% endfor %}
         </div>
       </div>
-      {% endfor %}
-    </div>
-  </div>
 
-  <div class="stat-card mb-4">
-    <div class="d-flex align-items-center gap-2 mb-4">
-      <i class="bi bi-people-fill" style="color: #4f8ef7;"></i>
-      <h6 class="mb-0 fw-semibold">Assign Role to User per App</h6>
-    </div>
-    <div class="table-responsive">
-      <table class="table table-dark table-hover align-middle mb-0" style="--bs-table-bg: transparent; border-color: rgba(255,255,255,0.06);">
-        <thead>
-          <tr>
-            <th style="color:#8b949e; font-weight:500;">User</th>
-            <th style="color:#8b949e; font-weight:500;">Global Roles (from User.roles)</th>
-            <th style="color:#8b949e; font-weight:500;">Assign Role (App-Scoped)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for u in all_users %}
-          <tr>
-            <td>
-              <div class="fw-medium">{{ u.username }}</div>
-              <div class="text-secondary" style="font-size:0.78rem;">ID: #{{ u.id }} | {{ u.email }}</div>
-            </td>
-            <td>
-              {% if u.roles %}
-                <div class="d-flex flex-wrap gap-1">
-                  {% for r in u.roles %}
-                  <span class="badge" style="background:rgba(168,139,250,0.15); color:#c4b5fd; border:1px solid rgba(168,139,250,0.3);">{{ r.name }}</span>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <span class="text-secondary">—</span>
-              {% endif %}
-            </td>
-            <td>
-              <form onsubmit="assignUserRole(event, {{ u.id }})" class="d-flex gap-2">
-                <select name="app_id" class="form-select form-select-sm bg-dark text-light border-secondary" style="max-width:120px;" required>
-                  <option value="">Select App</option>
-                  {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
-                </select>
-                <select name="role_id" class="form-select form-select-sm bg-dark text-light border-secondary" style="max-width:120px;" required>
-                  <option value="">Select Role</option>
-                  {% for role in all_roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}
-                </select>
-                <button type="submit" class="btn btn-sm btn-outline-primary">Assign</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <!-- Users Table -->
+      <div class="stat-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="mb-0 fw-semibold"><i class="bi bi-people-fill me-2" style="color:#4f8ef7;"></i>User Management</h6>
+          <input type="text" id="user-search" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Search user..." style="max-width:200px;">
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle mb-2" style="--bs-table-bg:transparent;border-color:rgba(255,255,255,0.06);font-size:0.85rem;">
+            <thead>
+              <tr>
+                <th style="color:#8b949e;font-weight:500;">#</th>
+                <th style="color:#8b949e;font-weight:500;">User</th>
+                <th style="color:#8b949e;font-weight:500;">Current Roles</th>
+                <th style="color:#8b949e;font-weight:500;">Assign Role (App-Scoped)</th>
+              </tr>
+            </thead>
+            <tbody id="user-table-body">
+              {% for u in all_users %}
+              <tr class="user-row" data-name="{{ u.username|lower }}" data-email="{{ u.email|lower }}">
+                <td class="text-secondary">#{{ u.id }}</td>
+                <td>
+                  <div class="fw-medium text-light">{{ u.username }}</div>
+                  <div class="text-secondary" style="font-size:0.75rem;">{{ u.email }}</div>
+                </td>
+                <td>
+                  <div class="d-flex flex-wrap gap-1" id="user-roles-{{ u.id }}">
+                    {% for r in u.roles %}
+                    <span class="badge" style="background:rgba(168,139,250,0.15);color:#c4b5fd;border:1px solid rgba(168,139,250,0.3);">{{ r.name }}</span>
+                    {% else %}
+                    <span class="text-secondary">—</span>
+                    {% endfor %}
+                  </div>
+                </td>
+                <td>
+                  <form onsubmit="assignUserRole(event, {{ u.id }})" class="d-flex gap-1 flex-wrap">
+                    <select name="app_id" class="form-select form-select-sm bg-dark text-light border-secondary user-app-select" style="max-width:110px;" required>
+                      <option value="">App</option>
+                      {% for app in all_apps %}<option value="{{ app.id }}">{{ app.name }}</option>{% endfor %}
+                    </select>
+                    <select name="role_id" class="form-select form-select-sm bg-dark text-light border-secondary user-role-select" style="max-width:110px;" required>
+                      <option value="">Role</option>
+                      {% for role in all_roles %}<option value="{{ role.id }}" data-app="{{ role.app_id or '' }}">{{ role.name }}</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0">
+                      <span class="btn-text">Assign</span>
+                      <span class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div class="d-flex align-items-center justify-content-between mt-2">
+          <span id="page-info" class="text-secondary" style="font-size:0.8rem;"></span>
+          <div class="d-flex gap-2">
+            <button id="prev-btn" class="btn btn-sm btn-outline-secondary" onclick="changePage(-1)">&#8592; Prev</button>
+            <button id="next-btn" class="btn btn-sm btn-outline-secondary" onclick="changePage(1)">Next &#8594;</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <script>
-  const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const PAGE_SIZE = 5;
+let currentPage = 1;
+let confirmCallback = null;
+let allUserRows = [];
 
-  function showAlert(message, type="success") {
-    const container = document.getElementById('alert-container');
-    container.innerHTML = `
-      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>`;
-  }
+// ── Alert System (Stacked, Auto-dismiss) ──────────────────────
+function showAlert(msg, type = 'success') {
+  const stack = document.getElementById('alert-stack');
+  if (stack.children.length >= 3) stack.removeChild(stack.firstChild);
+  const id = 'alert-' + Date.now();
+  const el = document.createElement('div');
+  el.id = id;
+  el.className = `alert alert-${type} alert-dismissible fade show shadow-lg`;
+  el.style.cssText = 'border-radius:10px;font-size:0.85rem;animation:slideIn 0.3s ease;';
+  el.innerHTML = `
+    <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'x-circle' : 'info-circle'}-fill me-2"></i>
+    ${msg}
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+    <div class="progress mt-2" style="height:3px;background:rgba(255,255,255,0.15);">
+      <div class="progress-bar bg-${type === 'danger' ? 'danger' : 'light'}" style="width:100%;transition:width 4s linear;"></div>
+    </div>`;
+  stack.appendChild(el);
+  setTimeout(() => el.querySelector('.progress-bar').style.width = '0%', 100);
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 4000);
+}
 
-  async function apiCall(url, method, payload=null) {
-    const headers = { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' };
-    const options = { method, headers };
-    if (payload) options.body = JSON.stringify(payload);
-    try {
-      const res = await fetch(url, options);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "API Error");
-      return data;
-    } catch (err) {
-      showAlert(err.message, "danger");
-      throw err;
+// ── Loading State Toggle ──────────────────────────────────────
+function setLoading(btn, loading) {
+  btn.disabled = loading;
+  btn.querySelector('.btn-text').classList.toggle('d-none', loading);
+  btn.querySelector('.spinner-border').classList.toggle('d-none', !loading);
+}
+
+// ── Core API Call ──────────────────────────────────────────────
+async function apiCall(url, method, body = null) {
+  const opts = { method, headers: { 'x-csrf-token': CSRF, 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (res.status === 204) return null;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'API Error');
+  return data;
+}
+
+// ── Confirm Modal ──────────────────────────────────────────────
+function showConfirm(title, body, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmBody').textContent = body;
+  confirmCallback = onOk;
+  new bootstrap.Modal(document.getElementById('confirmModal')).show();
+}
+document.getElementById('confirmOkBtn').addEventListener('click', () => {
+  bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
+  if (confirmCallback) confirmCallback();
+});
+
+// ── App Filter → Fetch Roles/Perms (No Reload) ────────────────
+document.getElementById('app-filter').addEventListener('change', async function () {
+  const appId = this.value;
+  const label = document.getElementById('filter-label');
+  label.textContent = appId ? `Filtering app #${appId}` : '';
+  try {
+    const rolesUrl = appId ? `/roles/?app_id=${appId}` : '/roles/';
+    const permsUrl = appId ? `/permissions/?app_id=${appId}` : '/permissions/';
+    const [roles, perms] = await Promise.all([
+      apiCall(rolesUrl, 'GET'), apiCall(permsUrl, 'GET')
+    ]);
+    renderRoles(roles, perms, appId);
+    updateUserRoleDropdowns(roles, appId);
+  } catch (e) { showAlert(e.message, 'danger'); }
+});
+
+function renderRoles(roles, perms, filterAppId) {
+  const container = document.getElementById('roles-container');
+  if (!roles.length) { container.innerHTML = '<div class="col-12 text-secondary text-center py-3">No roles found.</div>'; return; }
+  container.innerHTML = roles.map(role => `
+    <div class="col-md-6" id="role-card-${role.id}">
+      <div class="p-3" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="fw-semibold" style="color:#c4b5fd;">${role.name}</span>
+          <div class="d-flex gap-1">
+            <span class="badge bg-secondary" style="font-size:0.7rem;">${role.app_id || 'Global'}</span>
+            <button class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size:0.7rem;" onclick="confirmDeleteRole(${role.id}, '${role.name}')">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-1 mb-2" id="perms-of-role-${role.id}">
+          ${role.permissions.length ? role.permissions.map(p => `
+            <span class="badge d-flex align-items-center gap-1" style="background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);">
+              ${p.name}
+              <i class="bi bi-x-lg ms-1" style="cursor:pointer;font-size:0.6rem;" onclick="confirmRemovePerm(${role.id}, ${p.id}, '${p.name}', this)"></i>
+            </span>`).join('') : '<span class="text-secondary" style="font-size:0.78rem;">No permissions</span>'}
+        </div>
+        <form onsubmit="assignPermission(event, ${role.id}, ${role.app_id || 'null'})" class="d-flex gap-2">
+          <select name="permission_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
+            <option value="">Add Permission</option>
+            ${perms.filter(p => !role.app_id || !p.app_id || p.app_id === role.app_id)
+              .map(p => `<option value="${p.id}">${p.name} (${p.app_id || 'Global'})</option>`).join('')}
+          </select>
+          <button type="submit" class="btn btn-sm btn-outline-success flex-shrink-0">
+            <span class="btn-text">+</span>
+            <span class="spinner-border spinner-border-sm d-none"></span>
+          </button>
+        </form>
+      </div>
+    </div>`).join('');
+}
+
+function updateUserRoleDropdowns(roles, appId) {
+  document.querySelectorAll('.user-role-select').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Role</option>' +
+      roles.filter(r => !appId || !r.app_id || String(r.app_id) === String(appId))
+        .map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    sel.value = cur;
+  });
+}
+
+// ── Create Role ────────────────────────────────────────────────
+document.getElementById('create-role-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-create-role');
+  const name = document.getElementById('role-name').value.trim();
+  const desc = document.getElementById('role-desc').value.trim();
+  const appId = document.getElementById('role-app').value;
+  if (!name) return;
+  const payload = { name, description: desc };
+  if (appId) payload.app_id = parseInt(appId);
+  setLoading(btn, true);
+  try {
+    const role = await apiCall('/roles/', 'POST', payload);
+    showAlert(`Role "<strong>${role.name}</strong>" created!`);
+    this.reset();
+    const container = document.getElementById('roles-container');
+    const placeholder = container.querySelector('.text-secondary.text-center');
+    if (placeholder) placeholder.remove();
+    const col = document.createElement('div');
+    col.className = 'col-md-6';
+    col.id = `role-card-${role.id}`;
+    col.innerHTML = `<div class="p-3" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="fw-semibold" style="color:#c4b5fd;">${role.name}</span>
+        <div class="d-flex gap-1">
+          <span class="badge bg-secondary" style="font-size:0.7rem;">${role.app_id || 'Global'}</span>
+          <button class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size:0.7rem;" onclick="confirmDeleteRole(${role.id}, '${role.name}')"><i class="bi bi-trash3"></i></button>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-1 mb-2" id="perms-of-role-${role.id}"><span class="text-secondary" style="font-size:0.78rem;">No permissions</span></div>
+      <form onsubmit="assignPermission(event, ${role.id}, ${role.app_id || 'null'})" class="d-flex gap-2">
+        <select name="permission_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
+          <option value="">Add Permission</option>
+        </select>
+        <button type="submit" class="btn btn-sm btn-outline-success flex-shrink-0"><span class="btn-text">+</span><span class="spinner-border spinner-border-sm d-none"></span></button>
+      </form>
+    </div>`;
+    container.appendChild(col);
+  } catch(err) { showAlert(err.message, 'danger'); }
+  finally { setLoading(btn, false); }
+});
+
+// ── Create Permission ──────────────────────────────────────────
+document.getElementById('create-perm-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-create-perm');
+  const name = document.getElementById('perm-name').value.trim();
+  const desc = document.getElementById('perm-desc').value.trim();
+  const appId = document.getElementById('perm-app').value;
+  if (!name) return;
+  const payload = { name, description: desc };
+  if (appId) payload.app_id = parseInt(appId);
+  setLoading(btn, true);
+  try {
+    const perm = await apiCall('/permissions/', 'POST', payload);
+    showAlert(`Permission "<strong>${perm.name}</strong>" created!`);
+    this.reset();
+  } catch(err) { showAlert(err.message, 'danger'); }
+  finally { setLoading(btn, false); }
+});
+
+// ── Assign Permission to Role ──────────────────────────────────
+async function assignPermission(e, roleId, roleAppId) {
+  e.preventDefault();
+  const sel = e.target.permission_id;
+  const permId = sel.value;
+  if (!permId) return;
+  const btn = e.target.querySelector('button[type="submit"]');
+  setLoading(btn, true);
+  try {
+    const role = await apiCall(`/roles/${roleId}/permissions/${permId}`, 'POST');
+    showAlert('Permission assigned!');
+    const container = document.getElementById(`perms-of-role-${roleId}`);
+    const blank = container.querySelector('.text-secondary');
+    if (blank) blank.remove();
+    const perm = role.permissions.find(p => p.id == permId);
+    if (perm) {
+      const badge = document.createElement('span');
+      badge.className = 'badge d-flex align-items-center gap-1';
+      badge.style.cssText = 'background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.25);';
+      badge.innerHTML = `${perm.name}<i class="bi bi-x-lg ms-1" style="cursor:pointer;font-size:0.6rem;" onclick="confirmRemovePerm(${roleId}, ${perm.id}, '${perm.name}', this)"></i>`;
+      container.appendChild(badge);
     }
-  }
+    sel.value = '';
+  } catch(err) { showAlert(err.message, 'danger'); }
+  finally { setLoading(btn, false); }
+}
 
-  async function handleCreateRole(e) {
-    e.preventDefault();
-    const payload = { name: document.getElementById('role-name').value, description: document.getElementById('role-desc').value };
-    const appId = document.getElementById('role-app').value;
-    if (appId) payload.app_id = parseInt(appId);
-    try {
-      await apiCall('/roles/', 'POST', payload);
-      showAlert("Role created! Reloading...");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (e) {}
-  }
-
-  async function handleCreatePermission(e) {
-    e.preventDefault();
-    const payload = { name: document.getElementById('perm-name').value, description: document.getElementById('perm-desc').value };
-    const appId = document.getElementById('perm-app').value;
-    if (appId) payload.app_id = parseInt(appId);
-    try {
-      await apiCall('/permissions/', 'POST', payload);
-      showAlert("Permission created! Reloading...");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (e) {}
-  }
-
-  async function assignPermission(e, roleId) {
-    e.preventDefault();
-    const permId = e.target.permission_id.value;
-    try {
-      await apiCall(`/roles/${roleId}/permissions/${permId}`, 'POST');
-      showAlert("Permission assigned! Reloading...");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (e) {}
-  }
-
-  async function removePermission(roleId, permId) {
-    if (!confirm("Remove this permission?")) return;
+// ── Remove Permission from Role (with Confirm) ─────────────────
+function confirmRemovePerm(roleId, permId, permName, icon) {
+  showConfirm('Remove Permission', `Remove "${permName}" from this role?`, async () => {
     try {
       await apiCall(`/roles/${roleId}/permissions/${permId}`, 'DELETE');
-      showAlert("Permission removed! Reloading...");
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (e) {}
-  }
+      showAlert('Permission removed!', 'warning');
+      const badge = icon.closest('span');
+      badge.style.transition = 'opacity 0.3s';
+      badge.style.opacity = '0';
+      setTimeout(() => {
+        badge.remove();
+        const container = document.getElementById(`perms-of-role-${roleId}`);
+        if (!container.children.length) container.innerHTML = '<span class="text-secondary" style="font-size:0.78rem;">No permissions</span>';
+      }, 300);
+    } catch(err) { showAlert(err.message, 'danger'); }
+  });
+}
 
-  async function assignUserRole(e, userId) {
-    e.preventDefault();
-    const form = e.target;
-    const appId = form.app_id.value;
-    const roleId = form.role_id.value;
-    const roleName = form.role_id.options[form.role_id.selectedIndex].text;
-
+// ── Delete Role (with Confirm) ─────────────────────────────────
+function confirmDeleteRole(roleId, roleName) {
+  showConfirm('Delete Role', `Permanently delete role "${roleName}"?`, async () => {
     try {
-      await apiCall(`/apps/${appId}/users/${userId}/roles/${roleId}`, 'POST');
-      showAlert("Role assigned successfully! UI updated.", "success");
-      
-      // Dynamic DOM Update: Add badge to the second column
-      const tr = form.closest('tr');
-      const rolesCol = tr.children[1];
-      
-      let badgeContainer = rolesCol.querySelector('.d-flex');
-      if (!badgeContainer) {
-        rolesCol.innerHTML = '<div class="d-flex flex-wrap gap-1"></div>';
-        badgeContainer = rolesCol.querySelector('.d-flex');
-      }
-      
-      const newBadge = document.createElement('span');
-      newBadge.className = "badge";
-      newBadge.style = "background:rgba(168,139,250,0.15); color:#c4b5fd; border:1px solid rgba(168,139,250,0.3);";
-      newBadge.innerText = roleName;
-      
-      badgeContainer.appendChild(newBadge);
-      form.reset();
-    } catch (e) {}
-  }
+      await apiCall(`/roles/${roleId}`, 'DELETE');
+      showAlert(`Role "<strong>${roleName}</strong>" deleted!`, 'warning');
+      const card = document.getElementById(`role-card-${roleId}`);
+      card.style.transition = 'opacity 0.3s, transform 0.3s';
+      card.style.opacity = '0';
+      card.style.transform = 'scale(0.95)';
+      setTimeout(() => card.remove(), 300);
+    } catch(err) { showAlert(err.message, 'danger'); }
+  });
+}
+
+// ── Assign User Role (App-Scoped) ──────────────────────────────
+async function assignUserRole(e, userId) {
+  e.preventDefault();
+  const form = e.target;
+  const appId = form.app_id.value;
+  const roleId = form.role_id.value;
+  const roleName = form.role_id.options[form.role_id.selectedIndex]?.text || '';
+  if (!appId || !roleId) return;
+  const btn = form.querySelector('button[type="submit"]');
+  setLoading(btn, true);
+  try {
+    await apiCall(`/apps/${appId}/users/${userId}/roles/${roleId}`, 'POST');
+    showAlert('Role assigned to user!');
+    const rolesCol = document.getElementById(`user-roles-${userId}`);
+    const dash = rolesCol?.querySelector('.text-secondary');
+    if (dash) dash.remove();
+    if (rolesCol) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.style.cssText = 'background:rgba(168,139,250,0.15);color:#c4b5fd;border:1px solid rgba(168,139,250,0.3);';
+      badge.textContent = roleName;
+      rolesCol.appendChild(badge);
+    }
+    form.reset();
+  } catch(err) { showAlert(err.message, 'danger'); }
+  finally { setLoading(btn, false); }
+}
+
+// ── User App Filter → Filter Role Dropdown ─────────────────────
+document.querySelectorAll('.user-app-select').forEach(sel => {
+  sel.addEventListener('change', function() {
+    const appId = this.value;
+    const roleSelect = this.closest('form').querySelector('.user-role-select');
+    roleSelect.querySelectorAll('option').forEach(opt => {
+      if (!opt.value) return;
+      const optApp = opt.dataset.app || '';
+      opt.hidden = appId ? (optApp && optApp !== appId) : false;
+    });
+    roleSelect.value = '';
+  });
+});
+
+// ── User Table: Search ─────────────────────────────────────────
+document.getElementById('user-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  allUserRows.forEach(row => {
+    const name = row.dataset.name || '';
+    const email = row.dataset.email || '';
+    row.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+  });
+  currentPage = 1;
+  renderPage();
+});
+
+// ── User Table: Pagination ─────────────────────────────────────
+function getVisibleRows() {
+  return allUserRows.filter(r => r.style.display !== 'none');
+}
+
+function renderPage() {
+  const visible = getVisibleRows();
+  const total = visible.length;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  visible.forEach((row, i) => { row.style.display = (i >= start && i < end) ? '' : 'none'; });
+  document.getElementById('page-info').textContent = total
+    ? `Showing ${Math.min(start + 1, total)}–${Math.min(end, total)} of ${total} users`
+    : 'No users found';
+  document.getElementById('prev-btn').disabled = currentPage <= 1;
+  document.getElementById('next-btn').disabled = end >= total;
+}
+
+function changePage(dir) {
+  const total = getVisibleRows().length;
+  const maxPage = Math.ceil(total / PAGE_SIZE);
+  currentPage = Math.max(1, Math.min(currentPage + dir, maxPage));
+  renderPage();
+}
+
+// ── Init on Load ───────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  allUserRows = Array.from(document.querySelectorAll('#user-table-body .user-row'));
+  renderPage();
+
+  // Filter same-app permissions in existing dropdowns on load
+  document.querySelectorAll('.perm-dropdown').forEach(sel => {
+    const roleApp = sel.dataset.roleApp;
+    sel.querySelectorAll('option').forEach(opt => {
+      if (!opt.value) return;
+      const optApp = opt.dataset.app || '';
+      opt.hidden = roleApp ? (optApp && optApp !== roleApp) : false;
+    });
+  });
+});
 </script>
+
+<style>
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+</style>
+
 {% endblock %}

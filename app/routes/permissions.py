@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app.db.session import get_db
 from app.core.dependencies import require_permission, get_current_user, verify_csrf_token
 from app.schemas.permission import PermissionCreate, PermissionOut
-from app.services.permission_service import create_permission, get_all_permissions
+from app.services.permission_service import create_permission, get_all_permissions, delete_permission
 from app.services.audit_service import log_action_bg
 
 router = APIRouter()
@@ -20,10 +20,11 @@ router = APIRouter()
 
 @router.get("/", response_model=list[PermissionOut])
 def list_permissions(
+    app_id: int | None = None,
     db: Session = Depends(get_db),
     _=Depends(get_current_user),
 ):
-    return get_all_permissions(db)
+    return get_all_permissions(db, app_id=app_id)
 
 
 @router.post("/", response_model=PermissionOut, status_code=201, dependencies=[Depends(verify_csrf_token)])
@@ -41,3 +42,15 @@ def create_new_permission(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Permission with this name already exists in the application scope.")
+
+
+@router.delete("/{permission_id}", status_code=204, dependencies=[Depends(verify_csrf_token)])
+def delete_permission_endpoint(
+    permission_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_permission("delete")),
+):
+    delete_permission(db, permission_id)
+    log_action_bg(background_tasks, request, current_user.id, "delete_permission", {"permission_id": permission_id})
