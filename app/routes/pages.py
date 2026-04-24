@@ -130,9 +130,13 @@ def login_submit(
     return response
 
 
+import secrets
+from app.models.permission import Permission
+from app.models.application import Application
+
 # ─── Dashboard (Protected) ───────────────────────────────────
 @router.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db)):
+def dashboard(request: Request, app_id: int | None = None, db: Session = Depends(get_db)):
     token = request.cookies.get("access_token")
 
     if not token:
@@ -147,69 +151,56 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     user_id = int(payload.get("sub"))
     user = get_user_by_id(db, user_id)
 
-    # Load all users + all roles for admin panel
-    all_users = (
-        db.query(User)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
-        .all()
-    )
-    all_roles = db.query(Role).options(selectinload(Role.permissions)).all()
+    # Admin Check
+    is_admin = any(role.name == "admin" for role in user.roles)
+    if not is_admin:
+        # Not an admin, redirect or show error. Let's redirect to login for now.
+        response = RedirectResponse(url="/login", status_code=302)
+        response.delete_cookie("access_token")
+        return response
 
-    return templates.TemplateResponse(
+    # Fetch context data
+    all_apps_query = db.query(Application)
+    all_roles_query = db.query(Role).options(selectinload(Role.permissions))
+    all_permissions_query = db.query(Permission)
+    
+    if app_id:
+        all_roles_query = all_roles_query.filter(Role.app_id == app_id)
+        all_permissions_query = all_permissions_query.filter(Permission.app_id == app_id)
+
+    all_users = db.query(User).options(selectinload(User.roles).selectinload(Role.permissions)).all()
+    all_roles = all_roles_query.all()
+    all_permissions = all_permissions_query.all()
+    all_apps = all_apps_query.all()
+
+    # Generate CSRF token
+    csrf_token = request.cookies.get("csrf_token") or secrets.token_hex(32)
+
+    response = templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "user": user,
             "token": token,
+            "csrf_token": csrf_token,
             "expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
             "all_users": all_users,
             "all_roles": all_roles,
+            "all_permissions": all_permissions,
+            "all_apps": all_apps,
+            "selected_app_id": app_id,
         },
     )
-
-
-# ─── Assign Role (Web Form) ───────────────────────────────────
-@router.post("/assign-role", response_class=RedirectResponse)
-def assign_role_web(
-    request: Request,
-    target_user_id: int = Form(...),
-    role_id: int = Form(...),
-    db: Session = Depends(get_db),
-):
-    """Web form se role assign karo — sirf authenticated users kar sakte hain."""
-    token = request.cookies.get("access_token")
-    if not token or not decode_access_token(token):
-        return RedirectResponse(url="/login", status_code=302)
-
-    from app.services.role_service import assign_role_to_user
-    assign_role_to_user(db, target_user_id, role_id)
-    return RedirectResponse(url="/dashboard", status_code=302)
-
-
-# ─── Remove Role (Web Form) ──────────────────────────────────
-@router.post("/remove-role", response_class=RedirectResponse)
-def remove_role_web(
-    request: Request,
-    target_user_id: int = Form(...),
-    role_id: int = Form(...),
-    db: Session = Depends(get_db),
-):
-    token = request.cookies.get("access_token")
-    if not token or not decode_access_token(token):
-        return RedirectResponse(url="/login", status_code=302)
-
-    target_user = (
-        db.query(User)
-        .options(selectinload(User.roles))
-        .filter(User.id == target_user_id)
-        .first()
+    
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False, # Must be readable by JS to send in header, or we embed in HTML. Better to set httponly=False so JS can read it, or set in HTML and keep cookie httponly. 
+        # Actually, standard practice for CSRF: cookie is NOT HttpOnly so JS can read it and send in header, OR embed in meta tag and keep cookie HttpOnly. Let's embed in HTML to be safer, and keep cookie HttpOnly.
+        max_age=3600,
+        samesite="lax",
     )
-    if target_user:
-        role = db.query(Role).filter(Role.id == role_id).first()
-        if role and role in target_user.roles:
-            target_user.roles.remove(role)
-            db.commit()
-    return RedirectResponse(url="/dashboard", status_code=302)
+    return response
 
 
 # ─── Logout ──────────────────────────────────────────────────

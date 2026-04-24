@@ -83,3 +83,30 @@ def require_permission(permission_name: str, app_id: int | None = None):
         return current_user
 
     return dependency
+
+def require_admin(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> User:
+    # Basic check: user must have a role named "admin"
+    is_admin = any(role.name == "admin" for role in current_user.roles)
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required."
+        )
+    return current_user
+
+def verify_csrf_token(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return True
+
+    csrf_token = request.headers.get("x-csrf-token")
+    cookie_csrf = request.cookies.get("csrf_token")
+    if not csrf_token or not cookie_csrf or csrf_token != cookie_csrf:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing CSRF token"
+        )
+    return True
