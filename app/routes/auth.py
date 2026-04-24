@@ -8,9 +8,10 @@ POST /auth/login   → login, get JWT token
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.schemas.user import UserCreate, UserLogin, UserOut, Token
+from app.schemas.user import UserCreate, UserLogin, UserOut, Token, RefreshTokenRequest
 from app.services.auth_service import register_user, authenticate_user
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
+from app.utils.rate_limit import rate_limiter
 from fastapi import HTTPException, status
 
 router = APIRouter()
@@ -22,7 +23,7 @@ def signup(data: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(rate_limiter)])
 def login(data: UserLogin, db: Session = Depends(get_db)):
     user = authenticate_user(db, data.email, data.password)
     if not user:
@@ -30,8 +31,26 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
-    token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+@router.post("/refresh", response_model=Token, dependencies=[Depends(rate_limiter)])
+def refresh(data: RefreshTokenRequest):
+    payload = decode_refresh_token(data.refresh_token)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    
+    # Issue a new access token
+    new_access_token = create_access_token(data={"sub": payload["sub"]})
+    
+    # We could also issue a new refresh token (token rotation), but for now we just return the same one or generate a new one. Let's issue a new one for better security.
+    new_refresh_token = create_refresh_token(data={"sub": payload["sub"]})
+    
+    return {"access_token": new_access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 
 
 from app.schemas.iam import TokenValidationRequest, TokenValidationResponse, PermissionCheckRequest, PermissionCheckResponse

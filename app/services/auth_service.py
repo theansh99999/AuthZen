@@ -31,8 +31,27 @@ def register_user(db: Session, data: UserCreate) -> User:
     return user
 
 
+from datetime import datetime, timedelta, timezone
+from app.core.config import settings
+
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(password, user.password_hash):
+    if not user:
         return None
+
+    if user.account_locked_until and user.account_locked_until > datetime.now(timezone.utc):
+        raise HTTPException(status_code=403, detail="Account is locked due to multiple failed login attempts. Try again later.")
+
+    if not verify_password(password, user.password_hash):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
+            user.account_locked_until = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCOUNT_LOCKOUT_MINUTES)
+        db.commit()
+        return None
+
+    # Reset on success
+    user.failed_login_attempts = 0
+    user.account_locked_until = None
+    db.commit()
+
     return user
