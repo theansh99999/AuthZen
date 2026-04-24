@@ -154,10 +154,17 @@ def dashboard(request: Request, app_id: int | None = None, db: Session = Depends
     # Admin Check
     is_admin = any(role.name == "admin" for role in user.roles)
     if not is_admin:
-        # Not an admin, redirect or show error. Let's redirect to login for now.
-        response = RedirectResponse(url="/login", status_code=302)
-        response.delete_cookie("access_token")
-        return response
+        # Phase 13: Regular users see their accessible apps
+        from app.services.iam_service import get_user_accessible_apps
+        user_apps = get_user_accessible_apps(db, user)
+        return templates.TemplateResponse(
+            request,
+            "user_dashboard.html",
+            {
+                "user": user,
+                "user_apps": user_apps,
+            }
+        )
 
     # Fetch context data
     all_apps_query = db.query(Application)

@@ -342,6 +342,99 @@ const TESTS = [
     }
   },
   {
+    id: 'signup_p13', group: 'Phase 13 — App Access Control', name: 'POST /auth/signup (temp user)',
+    desc: 'Create a temporary user with no roles',
+    run: async () => {
+      state.tempUserEmail = `temp_${Date.now()}@example.com`;
+      state.tempUserPass = 'password123';
+      const r = await fetch('/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'TempUser', email: state.tempUserEmail, password: state.tempUserPass })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+      state.tempUserId = d.id;
+      return { ok: true, msg: `Temp user created (ID: ${d.id})` };
+    }
+  },
+  {
+    id: 'post_authorize_no_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /authorize (No Role)',
+    desc: 'Attempt to authorize without a role for the app',
+    run: async () => {
+      if (!state.appId || !state.tempUserEmail) return { ok: false, msg: 'Missing app or temp user', skip: true };
+      
+      const formData = new URLSearchParams();
+      formData.append('app_id', state.appId);
+      formData.append('redirect_uri', '/health');
+      formData.append('state', 'xyz123');
+      formData.append('email', state.tempUserEmail);
+      formData.append('password', state.tempUserPass);
+
+      const r = await fetch('/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      });
+      // Since access is denied, server returns 200 OK with the authorize.html rendering the error
+      if (r.status !== 200) throw new Error(`Expected 200, got ${r.status}`);
+      const text = await r.text();
+      const blocked = text.includes('Access Denied: You do not have permission to access this application.');
+      return { ok: blocked, msg: blocked ? 'Correctly denied access!' : 'Access was not denied' };
+    }
+  },
+  {
+    id: 'assign_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /apps/.../roles',
+    desc: 'Assign user role to the temp user for the app',
+    run: async () => {
+      if (!state.appId || !state.tempUserId) return { ok: false, msg: 'Missing app or temp user', skip: true };
+      
+      const rolesRes = await fetch('/roles/', { headers: { 'Authorization': `Bearer ${state.token}` } });
+      const roles = await rolesRes.json();
+      const userRole = roles.find(r => r.name === 'user');
+      if (!userRole) throw new Error("Could not find 'user' role");
+      
+      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
+      
+      const r = await fetch(`/apps/${state.appId}/users/${state.tempUserId}/roles/${userRole.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf }
+      });
+      
+      if (!r.ok) {
+         const d = await r.json();
+         throw new Error(d.detail || `HTTP ${r.status}`);
+      }
+      return { ok: true, msg: 'Assigned role successfully' };
+    }
+  },
+  {
+    id: 'post_authorize_with_role_p13', group: 'Phase 13 — App Access Control', name: 'POST /authorize (With Role)',
+    desc: 'Attempt to authorize WITH a role for the app',
+    run: async () => {
+      if (!state.appId || !state.tempUserEmail) return { ok: false, msg: 'Missing app or temp user', skip: true };
+      
+      const formData = new URLSearchParams();
+      formData.append('app_id', state.appId);
+      formData.append('redirect_uri', '/health');
+      formData.append('state', 'xyz123');
+      formData.append('email', state.tempUserEmail);
+      formData.append('password', state.tempUserPass);
+
+      const r = await fetch('/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      });
+      // It should follow redirect to /health?code=...
+      if (!r.ok) throw new Error(`Failed to authorize: HTTP ${r.status}`);
+      const url = new URL(r.url);
+      const code = url.searchParams.get('code');
+      if (!code) throw new Error('No code found in redirect URL');
+      return { ok: true, msg: `Access allowed! Code: ${code.slice(0,10)}...` };
+    }
+  },
+  {
     id: 'delete_app_p8', group: 'Phase 8 — App Registration', name: 'DELETE /apps/{id}',
     desc: 'Delete the test app (admin only)',
     run: async () => {

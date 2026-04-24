@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}My Applications - AuthZen{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <h3 class="fw-bold mb-0"><i class="bi bi-grid-1x2-fill text-warning me-2"></i>My Applications</h3>
+      <a href="/logout" class="btn btn-outline-danger">Logout</a>
+    </div>
+    <p class="text-secondary mt-2">Welcome, {{ user.email }}. Here are the applications you have access to.</p>
+  </div>
+
+  {% for app in user_apps %}
+  <div class="col-md-4 col-sm-6 mb-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body text-center">
+        <h5 class="card-title text-light fw-bold">{{ app.name }}</h5>
+        <p class="card-text text-secondary" style="font-size:0.85rem;">{{ app.description or 'No description provided.' }}</p>
+      </div>
+      <div class="card-footer border-secondary bg-transparent text-center">
+        {% if app.redirect_uri %}
+          <a href="{{ app.redirect_uri }}" class="btn btn-sm btn-outline-warning w-100" target="_blank">Launch App</a>
+        {% else %}
+          <button class="btn btn-sm btn-outline-secondary w-100" disabled>No Launch URL</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="alert alert-dark border-secondary text-center text-secondary py-5">
+      <i class="bi bi-folder-x fs-1 mb-3 d-block"></i>
+      <h5>No Applications Assigned</h5>
+      <p class="mb-0">You currently do not have access to any applications. Contact your administrator to request access.</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -72,6 +72,14 @@ def authorize_submit(
             "app": app, "app_id": app_id, "redirect_uri": redirect_uri, "state": state
         })
 
+    # Phase 13: App Access Control
+    from app.services.iam_service import has_app_access
+    if not has_app_access(db, user, app_id):
+        return templates.TemplateResponse(request, "authorize.html", {
+            "error": "Access Denied: You do not have permission to access this application.",
+            "app": app, "app_id": app_id, "redirect_uri": redirect_uri, "state": state
+        })
+
     code = generate_auth_code(db, user.id, app_id, redirect_uri, state)
 
     # Build redirect URL

@@ -78,3 +78,55 @@ def check_user_permission(db: Session, user: User, permission_name: str, app_id:
                 return True
                 
     return False
+
+def has_app_access(db: Session, user: User, app_id: int) -> bool:
+    """
+    Checks if a user has at least one role assigned for the specific app_id,
+    OR if the user has a global role (app_id IS NULL) which implicitly grants access.
+    """
+    from app.models.associations import user_roles
+    
+    # Check for any role mapping matching this user and this app (or global)
+    stmt = (
+        db.query(user_roles)
+        .filter(
+            user_roles.c.user_id == user.id,
+            (user_roles.c.app_id == app_id) | (user_roles.c.app_id.is_(None))
+        )
+    )
+    mapping = stmt.first()
+    return mapping is not None
+
+def get_user_accessible_apps(db: Session, user: User) -> list:
+    """
+    Returns a list of Application objects that the user has access to.
+    If the user has a global role, they get access to all active apps.
+    Otherwise, they only get apps explicitly mapped to them.
+    """
+    from app.models.application import Application
+    from app.models.associations import user_roles
+    
+    # Check if user has any global role
+    global_role_stmt = (
+        db.query(user_roles)
+        .filter(
+            user_roles.c.user_id == user.id,
+            user_roles.c.app_id.is_(None)
+        )
+    )
+    has_global = global_role_stmt.first() is not None
+    
+    if has_global:
+        return db.query(Application).filter(Application.is_active == True).all()
+        
+    # User only has app-specific roles
+    stmt = (
+        db.query(Application)
+        .join(user_roles, user_roles.c.app_id == Application.id)
+        .filter(
+            user_roles.c.user_id == user.id,
+            Application.is_active == True
+        )
+        .distinct()
+    )
+    return stmt.all()
