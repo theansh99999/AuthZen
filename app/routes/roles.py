@@ -7,7 +7,7 @@ POST /roles/{role_id}/permissions/{perm_id} → assign permission to role [requi
 DELETE /roles/{role_id}/permissions/{perm_id} → remove permission from role [requires: delete]
 """
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -19,7 +19,7 @@ from app.services.role_service import (
     create_role, get_all_roles, get_role_by_id,
     assign_permission_to_role, remove_permission_from_role,
 )
-from app.services.audit_service import log_action
+from app.services.audit_service import log_action_bg
 
 router = APIRouter()
 
@@ -36,12 +36,13 @@ def list_roles(
 def create_new_role(
     data: RoleCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("write")),
 ):
     try:
         role = create_role(db, data)
-        log_action(db, current_user.id, "create_role", request.client.host, {"role_name": role.name, "app_id": role.app_id})
+        log_action_bg(background_tasks, request, current_user.id, "create_role", {"role_name": role.name, "app_id": role.app_id})
         return role
     except IntegrityError:
         db.rollback()
@@ -53,11 +54,12 @@ def assign_perm_to_role(
     role_id: int,
     permission_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("write")),
 ):
     role = assign_permission_to_role(db, role_id, permission_id)
-    log_action(db, current_user.id, "assign_permission", request.client.host, {"role_id": role_id, "permission_id": permission_id})
+    log_action_bg(background_tasks, request, current_user.id, "assign_permission", {"role_id": role_id, "permission_id": permission_id})
     return role
 
 
@@ -66,9 +68,10 @@ def remove_perm_from_role(
     role_id: int,
     permission_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("delete")),
 ):
     role = remove_permission_from_role(db, role_id, permission_id)
-    log_action(db, current_user.id, "remove_permission", request.client.host, {"role_id": role_id, "permission_id": permission_id})
+    log_action_bg(background_tasks, request, current_user.id, "remove_permission", {"role_id": role_id, "permission_id": permission_id})
     return role

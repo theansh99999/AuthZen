@@ -6,7 +6,7 @@ GET  /apps/        → list applications
 GET  /apps/{id}    → get application
 """
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -18,7 +18,7 @@ from app.services.application_service import (
     get_all_applications, 
     assign_role_to_user_for_app
 )
-from app.services.audit_service import log_action
+from app.services.audit_service import log_action_bg
 
 router = APIRouter()
 
@@ -27,13 +27,14 @@ router = APIRouter()
 def create_app(
     data: ApplicationCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("write"))
 ):
     """Creates a new application configuration."""
     try:
         app = create_application(db, data)
-        log_action(db, current_user.id, "create_application", request.client.host, {"app_name": app.name})
+        log_action_bg(background_tasks, request, current_user.id, "create_application", {"app_name": app.name})
         return app
     except IntegrityError:
         db.rollback()
@@ -55,10 +56,11 @@ def assign_role_to_user_under_app(
     user_id: int,
     role_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("write"))
 ):
     """Assigns a role strictly to a user under the scope of an application."""
     res = assign_role_to_user_for_app(db, user_id, role_id, app_id)
-    log_action(db, current_user.id, "assign_role_for_app", request.client.host, {"user_id": user_id, "role_id": role_id, "app_id": app_id})
+    log_action_bg(background_tasks, request, current_user.id, "assign_role_for_app", {"user_id": user_id, "role_id": role_id, "app_id": app_id})
     return res

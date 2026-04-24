@@ -5,7 +5,7 @@ GET  /permissions/     → list all permissions
 POST /permissions/     → create permission  [requires: write]
 """
 
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -13,7 +13,7 @@ from app.db.session import get_db
 from app.core.dependencies import require_permission, get_current_user, verify_csrf_token
 from app.schemas.permission import PermissionCreate, PermissionOut
 from app.services.permission_service import create_permission, get_all_permissions
-from app.services.audit_service import log_action
+from app.services.audit_service import log_action_bg
 
 router = APIRouter()
 
@@ -30,12 +30,13 @@ def list_permissions(
 def create_new_permission(
     data: PermissionCreate,
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user=Depends(require_permission("write")),
 ):
     try:
         perm = create_permission(db, data)
-        log_action(db, current_user.id, "create_permission", request.client.host, {"permission_name": perm.name, "app_id": perm.app_id})
+        log_action_bg(background_tasks, request, current_user.id, "create_permission", {"permission_name": perm.name, "app_id": perm.app_id})
         return perm
     except IntegrityError:
         db.rollback()
