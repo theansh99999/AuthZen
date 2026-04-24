@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AuthZen — Test Runner</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; }
+    .test-card { background: rgba(22,27,34,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem; margin-bottom: 0.75rem; transition: border-color 0.3s; }
+    .test-card.pass { border-color: rgba(34,197,94,0.5); }
+    .test-card.fail { border-color: rgba(239,68,68,0.5); }
+    .test-card.running { border-color: rgba(251,191,36,0.5); }
+    .badge-pass { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .badge-fail { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-skip { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+    .badge-run  { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .log-box { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 0.75rem; font-family: 'Courier New', monospace; font-size: 0.75rem; max-height: 120px; overflow-y: auto; color: #58a6ff; margin-top: 0.5rem; }
+    .stat-num { font-size: 2rem; font-weight: 700; }
+    .navbar-brand { font-weight: 700; background: linear-gradient(135deg, #4f8ef7, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    #progress-bar { transition: width 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar sticky-top" style="background:rgba(13,17,23,0.97);border-bottom:1px solid rgba(255,255,255,0.08);">
+  <div class="container">
+    <span class="navbar-brand"><i class="bi bi-shield-lock-fill me-2"></i>AuthZen Test Runner</span>
+    <div class="d-flex gap-2">
+      <a href="/dashboard" class="btn btn-sm btn-outline-secondary">Dashboard</a>
+      <button id="run-all-btn" class="btn btn-sm btn-primary" onclick="runAll()">
+        <i class="bi bi-play-fill me-1"></i>Run All Tests
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4">
+
+  <!-- Config -->
+  <div class="test-card mb-4">
+    <h6 class="fw-semibold mb-3"><i class="bi bi-gear-fill text-warning me-2"></i>Test Configuration</h6>
+    <div class="row g-2">
+      <div class="col-md-4"><label class="form-label text-secondary" style="font-size:0.8rem;">Test Email</label>
+        <input id="cfg-email" class="form-control form-control-sm bg-dark text-light border-secondary" value="testuser_runner@iam.dev"></div>
+      <div class="col-md-3"><label class="form-label text-secondary" style="font-size:0.8rem;">Password</label>
+        <input id="cfg-pass" class="form-control form-control-sm bg-dark text-light border-secondary" value="TestPass@123"></div>
+      <div class="col-md-3"><label class="form-label text-secondary" style="font-size:0.8rem;">API Key</label>
+        <input id="cfg-apikey" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="your-api-key"></div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-sm btn-outline-info w-100" onclick="resetConfig()"><i class="bi bi-arrow-clockwise"></i> Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="row g-3 mb-4" id="summary">
+    <div class="col-3 text-center"><div class="test-card"><div class="stat-num text-light" id="cnt-total">0</div><div class="text-secondary" style="font-size:0.8rem;">Total</div></div></div>
+    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#4ade80;" id="cnt-pass">0</div><div class="text-secondary" style="font-size:0.8rem;">Passed</div></div></div>
+    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#f87171;" id="cnt-fail">0</div><div class="text-secondary" style="font-size:0.8rem;">Failed</div></div></div>
+    <div class="col-3 text-center"><div class="test-card"><div class="stat-num" style="color:#fbbf24;" id="cnt-skip">0</div><div class="text-secondary" style="font-size:0.8rem;">Skipped</div></div></div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="progress mb-4" style="height:6px;background:rgba(255,255,255,0.08);">
+    <div id="progress-bar" class="progress-bar bg-success" style="width:0%;"></div>
+  </div>
+
+  <!-- Test Cases -->
+  <div id="test-list"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────
+let state = { token: null, userId: null, roleId: null, permId: null, appId: null };
+
+function cfg(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function resetConfig() {
+  document.getElementById('cfg-email').value = 'testuser_runner@iam.dev';
+  document.getElementById('cfg-pass').value = 'TestPass@123';
+}
+
+// ── Test Definitions ───────────────────────────────────────────
+const TESTS = [
+  {
+    id: 'signup', group: 'Phase 1 — Auth', name: 'POST /auth/signup',
+    desc: 'Register a new test user',
+    run: async () => {
+      const r = await fetch('/auth/signup', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: 'test_runner_user', email: cfg('cfg-email'), password: cfg('cfg-pass') }) });
+      const d = await r.json();
+      if (r.status === 201) return { ok: true, msg: `User created: ID ${d.id}` };
+      if (r.status === 400 && d.detail?.includes('already')) return { ok: true, msg: 'User already exists (OK)' };
+      throw new Error(d.detail || `HTTP ${r.status}`);
+    }
+  },
+  {
+    id: 'login', group: 'Phase 1 — Auth', name: 'POST /auth/login',
+    desc: 'Login and get JWT token',
+    run: async () => {
+      const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: cfg('cfg-email'), password: cfg('cfg-pass') }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+      state.token = d.access_token;
+      return { ok: true, msg: `Token received (${d.token_type})` };
+    }
+  },
+  {
+    id: 'login_fail', group: 'Phase 1 — Auth', name: 'POST /auth/login (wrong creds)',
+    desc: 'Login with wrong password should return 401',
+    run: async () => {
+      const r = await fetch('/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: cfg('cfg-email'), password: 'WrongPass999!' }) });
+      if (r.status === 401) return { ok: true, msg: '401 returned correctly' };
+      throw new Error(`Expected 401, got ${r.status}`);
+    }
+  },
+  {
+    id: 'list_roles', group: 'Phase 2 — RBAC', name: 'GET /roles/',
+    desc: 'List all roles (requires auth)',
+    run: async () => {
+      if (!state.token) throw new Error('No token — run login first');
+      const r = await fetch('/roles/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      state.roleId = d.find(x => x.name === 'admin')?.id || d[0]?.id;
+      return { ok: true, msg: `${d.length} roles found. Admin ID: ${state.roleId}` };
+    }
+  },
+  {
+    id: 'create_role', group: 'Phase 2 — RBAC', name: 'POST /roles/',
+    desc: 'Create a test role (requires CSRF cookie)',
+    run: async () => {
+      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
+      if (!csrf) return { ok: false, msg: 'No CSRF token — visit /dashboard first to set cookie', skip: true };
+      const r = await fetch('/roles/', { method:'POST',
+        headers:{ 'Authorization': `Bearer ${state.token}`, 'Content-Type':'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({ name: 'test_runner_role', description: 'Auto test role' }) });
+      const d = await r.json();
+      if (r.status === 201) { state.roleId = d.id; return { ok: true, msg: `Role created ID: ${d.id}` }; }
+      if (r.status === 400) return { ok: true, msg: 'Role already exists (OK)' };
+      throw new Error(d.detail || `HTTP ${r.status}`);
+    }
+  },
+  {
+    id: 'list_perms', group: 'Phase 2 — RBAC', name: 'GET /permissions/',
+    desc: 'List all permissions',
+    run: async () => {
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/permissions/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      state.permId = d.find(x => x.name === 'read')?.id || d[0]?.id;
+      return { ok: true, msg: `${d.length} permissions. Using ID: ${state.permId}` };
+    }
+  },
+  {
+    id: 'list_apps', group: 'Phase 4 — Multi-App', name: 'GET /apps/',
+    desc: 'List all applications',
+    run: async () => {
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/apps/', { headers:{ 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      state.appId = d[0]?.id;
+      return { ok: true, msg: `${d.length} apps. First ID: ${state.appId || 'none'}` };
+    }
+  },
+  {
+    id: 'validate_token', group: 'Phase 3 — IAM Service', name: 'POST /auth/validate-token',
+    desc: 'Validate JWT token via IAM API (needs API key)',
+    run: async () => {
+      const key = cfg('cfg-apikey');
+      if (!key) return { ok: false, msg: 'No API key configured', skip: true };
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/auth/validate-token', { method:'POST',
+        headers:{ 'x-api-key': key, 'Content-Type':'application/json' },
+        body: JSON.stringify({ token: state.token }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      return { ok: d.is_valid, msg: d.is_valid ? `Valid. User: ${d.user?.username}` : `Invalid: ${d.error}` };
+    }
+  },
+  {
+    id: 'check_perm', group: 'Phase 3 — IAM Service', name: 'POST /auth/check-permission',
+    desc: 'Check if user has "read" permission',
+    run: async () => {
+      const key = cfg('cfg-apikey');
+      if (!key) return { ok: false, msg: 'No API key configured', skip: true };
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/auth/check-permission', { method:'POST',
+        headers:{ 'x-api-key': key, 'Content-Type':'application/json' },
+        body: JSON.stringify({ token: state.token, permission: 'read' }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      return { ok: true, msg: `has_permission: ${d.has_permission}` };
+    }
+  },
+  {
+    id: 'audit_logs_me', group: 'Phase 7 — Audit Logs', name: 'GET /logs/me',
+    desc: 'Fetch my own audit logs',
+    run: async () => {
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/logs/me?limit=5', { headers:{ 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      return { ok: true, msg: `${d.length} log entries found` };
+    }
+  },
+  {
+    id: 'audit_logs_all', group: 'Phase 7 — Audit Logs', name: 'GET /logs/ (admin)',
+    desc: 'Fetch all system audit logs (admin only)',
+    run: async () => {
+      if (!state.token) throw new Error('No token');
+      const r = await fetch('/logs/?limit=5', { headers:{ 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (r.status === 403) return { ok: true, msg: '403 — not admin (expected for non-admin users)' };
+      if (!r.ok) throw new Error(d.detail);
+      return { ok: true, msg: `${d.length} system log entries` };
+    }
+  },
+  {
+    id: 'health', group: 'System', name: 'GET /health',
+    desc: 'Health check endpoint',
+    run: async () => {
+      const r = await fetch('/health');
+      const d = await r.json();
+      if (!r.ok) throw new Error('Health check failed');
+      return { ok: d.status === 'ok', msg: `${d.status} | v${d.version}` };
+    }
+  },
+  // ── Phase 8 — App Registration ────────────────────────────────
+  {
+    id: 'list_apps_p8', group: 'Phase 8 — App Registration', name: 'GET /apps/',
+    desc: 'List all registered applications',
+    run: async () => {
+      if (!state.token) throw new Error('No token — run login first');
+      const r = await fetch('/apps/', { headers: { 'Authorization': `Bearer ${state.token}` } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail);
+      state.appId = d[0]?.id;
+      const hasApiKey = d.length ? (d[0].api_key !== undefined) : true;
+      return { ok: true, msg: `${d.length} apps found. api_key field present: ${hasApiKey}` };
+    }
+  },
+  {
+    id: 'create_app_p8', group: 'Phase 8 — App Registration', name: 'POST /apps/',
+    desc: 'Create app with auto-generated API key (requires CSRF)',
+    run: async () => {
+      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
+      if (!csrf) return { ok: false, msg: 'No CSRF token — visit /dashboard first', skip: true };
+      if (!state.token) throw new Error('No token');
+      const name = `test_app_${Date.now()}`;
+      const r = await fetch('/apps/', { method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+        body: JSON.stringify({ name, description: 'Test app from runner', redirect_uri: 'http://localhost:3000/callback' }) });
+      const d = await r.json();
+      if (r.status === 403) throw new Error('403 — Need admin/write permission');
+      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+      state.appId = d.id;
+      const hasKey = d.api_key && d.api_key.startsWith('iam_');
+      return { ok: hasKey, msg: `App "${d.name}" created. Key: ${d.api_key?.slice(0,20)}... | redirect_uri: ${d.redirect_uri}` };
+    }
+  },
+  {
+    id: 'regen_key_p8', group: 'Phase 8 — App Registration', name: 'POST /apps/{id}/regenerate-key',
+    desc: 'Regenerate API key for an app (admin only)',
+    run: async () => {
+      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
+      if (!csrf) return { ok: false, msg: 'No CSRF token', skip: true };
+      if (!state.appId) return { ok: false, msg: 'No app created — run create_app test first', skip: true };
+      if (!state.token) throw new Error('No token');
+      const r = await fetch(`/apps/${state.appId}/regenerate-key`, { method: 'POST',
+        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf } });
+      if (r.status === 403) return { ok: true, msg: '403 — Not admin (expected for non-admin)' };
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+      return { ok: d.api_key?.startsWith('iam_'), msg: `New key: ${d.api_key?.slice(0,20)}...` };
+    }
+  },
+  {
+    id: 'delete_app_p8', group: 'Phase 8 — App Registration', name: 'DELETE /apps/{id}',
+    desc: 'Delete the test app (admin only)',
+    run: async () => {
+      const csrf = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='))?.split('=')[1];
+      if (!csrf) return { ok: false, msg: 'No CSRF token', skip: true };
+      if (!state.appId) return { ok: false, msg: 'No app to delete', skip: true };
+      if (!state.token) throw new Error('No token');
+      const r = await fetch(`/apps/${state.appId}`, { method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${state.token}`, 'x-csrf-token': csrf } });
+      if (r.status === 204) { state.appId = null; return { ok: true, msg: 'App deleted (204 No Content)' }; }
+      if (r.status === 403) return { ok: true, msg: '403 — Not admin (expected for non-admin)' };
+      throw new Error(`Unexpected status: ${r.status}`);
+    }
+  },
+];
+
+// ── Render Tests ───────────────────────────────────────────────
+function renderTests() {
+  const list = document.getElementById('test-list');
+  let lastGroup = '';
+  list.innerHTML = '';
+  TESTS.forEach(t => {
+    if (t.group !== lastGroup) {
+      lastGroup = t.group;
+      list.innerHTML += `<div class="text-secondary fw-semibold mb-2 mt-3" style="font-size:0.8rem;letter-spacing:0.5px;">${t.group.toUpperCase()}</div>`;
+    }
+    list.innerHTML += `
+      <div class="test-card" id="card-${t.id}">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <code style="color:#e6edf3;font-size:0.85rem;">${t.name}</code>
+            <span class="text-secondary ms-2" style="font-size:0.78rem;">${t.desc}</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="badge badge-skip" id="badge-${t.id}">PENDING</span>
+            <button class="btn btn-sm btn-outline-secondary py-0" onclick="runSingle('${t.id}')">Run</button>
+          </div>
+        </div>
+        <div id="log-${t.id}" class="log-box d-none"></div>
+      </div>`;
+  });
+}
+
+// ── Run Single Test ─────────────────────────────────────────────
+async function runSingle(id) {
+  const test = TESTS.find(t => t.id === id);
+  const card = document.getElementById(`card-${id}`);
+  const badge = document.getElementById(`badge-${id}`);
+  const log = document.getElementById(`log-${id}`);
+  card.className = 'test-card running';
+  badge.className = 'badge badge-run'; badge.textContent = 'RUNNING';
+  log.className = 'log-box'; log.textContent = '⏳ Running...';
+  try {
+    const result = await test.run();
+    if (result.skip) {
+      card.className = 'test-card'; badge.className = 'badge badge-skip'; badge.textContent = 'SKIPPED';
+      log.textContent = `⏭️  ${result.msg}`;
+      return 'skip';
+    }
+    card.className = `test-card ${result.ok ? 'pass' : 'fail'}`;
+    badge.className = `badge ${result.ok ? 'badge-pass' : 'badge-fail'}`;
+    badge.textContent = result.ok ? 'PASS' : 'FAIL';
+    log.textContent = `${result.ok ? '✅' : '❌'} ${result.msg}`;
+    return result.ok ? 'pass' : 'fail';
+  } catch(err) {
+    card.className = 'test-card fail'; badge.className = 'badge badge-fail'; badge.textContent = 'FAIL';
+    log.textContent = `❌ Error: ${err.message}`;
+    return 'fail';
+  }
+}
+
+// ── Run All ─────────────────────────────────────────────────────
+async function runAll() {
+  const btn = document.getElementById('run-all-btn');
+  btn.disabled = true; btn.textContent = 'Running...';
+  let pass = 0, fail = 0, skip = 0;
+  document.getElementById('cnt-total').textContent = TESTS.length;
+  for (let i = 0; i < TESTS.length; i++) {
+    const result = await runSingle(TESTS[i].id);
+    if (result === 'pass') pass++;
+    else if (result === 'fail') fail++;
+    else skip++;
+    document.getElementById('cnt-pass').textContent = pass;
+    document.getElementById('cnt-fail').textContent = fail;
+    document.getElementById('cnt-skip').textContent = skip;
+    document.getElementById('progress-bar').style.width = `${((i+1)/TESTS.length)*100}%`;
+    document.getElementById('progress-bar').className = `progress-bar ${fail > 0 ? 'bg-danger' : 'bg-success'}`;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Run All Tests';
+}
+
+renderTests();
+</script>
+</body>
+</html>

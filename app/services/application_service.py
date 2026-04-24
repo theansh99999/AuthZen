@@ -1,21 +1,27 @@
-"""
-services/application_service.py - Multi-app management and role mappings
-"""
-
+import secrets
 from sqlalchemy.orm import Session
 from sqlalchemy import insert
 from fastapi import HTTPException
 from app.models.application import Application
 from app.models.user import User
 from app.models.role import Role
-from app.schemas.application import ApplicationCreate
+from app.schemas.application import ApplicationCreate, ApplicationUpdate
 from app.models.associations import user_roles
+
+
+def _generate_api_key() -> str:
+    return f"iam_{secrets.token_urlsafe(32)}"
 
 
 def create_application(db: Session, data: ApplicationCreate) -> Application:
     if db.query(Application).filter(Application.name == data.name).first():
         raise HTTPException(status_code=400, detail="Application name already exists.")
-    app = Application(name=data.name, description=data.description)
+    app = Application(
+        name=data.name,
+        description=data.description,
+        redirect_uri=data.redirect_uri,
+        api_key=_generate_api_key()
+    )
     db.add(app)
     db.commit()
     db.refresh(app)
@@ -24,6 +30,40 @@ def create_application(db: Session, data: ApplicationCreate) -> Application:
 
 def get_all_applications(db: Session) -> list[Application]:
     return db.query(Application).all()
+
+
+def get_application_by_id(db: Session, app_id: int) -> Application:
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    return app
+
+
+def update_application(db: Session, app_id: int, data: ApplicationUpdate) -> Application:
+    app = get_application_by_id(db, app_id)
+    if data.description is not None:
+        app.description = data.description
+    if data.redirect_uri is not None:
+        app.redirect_uri = data.redirect_uri
+    if data.is_active is not None:
+        app.is_active = data.is_active
+    db.commit()
+    db.refresh(app)
+    return app
+
+
+def regenerate_api_key(db: Session, app_id: int) -> Application:
+    app = get_application_by_id(db, app_id)
+    app.api_key = _generate_api_key()
+    db.commit()
+    db.refresh(app)
+    return app
+
+
+def delete_application(db: Session, app_id: int) -> None:
+    app = get_application_by_id(db, app_id)
+    db.delete(app)
+    db.commit()
 
 
 def assign_role_to_user_for_app(db: Session, user_id: int, role_id: int, app_id: int) -> dict:

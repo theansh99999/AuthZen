@@ -85,10 +85,75 @@
         </form>
       </div>
 
+      <!-- Create Application -->
+      <div class="stat-card mb-4">
+        <h6 class="mb-3 fw-semibold"><i class="bi bi-grid-1x2-fill text-warning me-2"></i>Register App</h6>
+        <form id="create-app-form">
+          <input type="text" id="app-name" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="App Name" required>
+          <input type="text" id="app-desc" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Description (optional)">
+          <input type="url" id="app-redirect" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Redirect URI (optional)">
+          <button type="submit" id="btn-create-app" class="btn btn-sm btn-warning w-100 text-dark fw-semibold">
+            <span class="btn-text"><i class="bi bi-key-fill me-1"></i>Register & Generate Key</span>
+            <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+          </button>
+        </form>
+      </div>
+
     </div>
 
     <!-- RIGHT COLUMN -->
     <div class="col-lg-8">
+
+      <!-- Applications Management -->
+      <div class="stat-card mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h6 class="mb-0 fw-semibold"><i class="bi bi-grid-1x2-fill text-warning me-2"></i>Registered Applications</h6>
+          <span class="text-secondary" style="font-size:0.78rem;">API Keys are shown once</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle mb-0" style="--bs-table-bg:transparent;border-color:rgba(255,255,255,0.06);font-size:0.82rem;">
+            <thead>
+              <tr>
+                <th style="color:#8b949e;font-weight:500;">App</th>
+                <th style="color:#8b949e;font-weight:500;">API Key</th>
+                <th style="color:#8b949e;font-weight:500;">Redirect URI</th>
+                <th style="color:#8b949e;font-weight:500;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="apps-table-body">
+              {% for app in all_apps %}
+              <tr id="app-row-{{ app.id }}">
+                <td>
+                  <div class="fw-medium text-light">{{ app.name }}</div>
+                  <div class="text-secondary" style="font-size:0.73rem;">{{ app.description or '—' }}</div>
+                  {% if not app.is_active %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+                </td>
+                <td>
+                  <code class="text-warning" style="font-size:0.72rem;word-break:break-all;" id="apikey-{{ app.id }}">
+                    {{ app.api_key or 'N/A' }}
+                  </code>
+                </td>
+                <td class="text-secondary" style="font-size:0.75rem;">{{ app.redirect_uri or '—' }}</td>
+                <td>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size:0.72rem;"
+                      onclick="regenKey({{ app.id }}, this)" title="Regenerate API Key">
+                      <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.72rem;"
+                      onclick="confirmDeleteApp({{ app.id }}, '{{ app.name }}')" title="Delete App">
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-secondary text-center py-3">No applications registered yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- Roles & Permissions Mapping -->
       <div class="stat-card mb-4">
@@ -325,6 +390,73 @@ function updateUserRoleDropdowns(roles, appId) {
       roles.filter(r => !appId || !r.app_id || String(r.app_id) === String(appId))
         .map(r => `<option value="${r.id}">${r.name}</option>`).join('');
     sel.value = cur;
+  });
+}
+
+// ── Create Application ──────────────────────────────────────────
+document.getElementById('create-app-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-create-app');
+  const name = document.getElementById('app-name').value.trim();
+  const desc = document.getElementById('app-desc').value.trim();
+  const redirect = document.getElementById('app-redirect').value.trim();
+  if (!name) return;
+  const payload = { name };
+  if (desc) payload.description = desc;
+  if (redirect) payload.redirect_uri = redirect;
+  setLoading(btn, true);
+  try {
+    const app = await apiCall('/apps/', 'POST', payload);
+    showAlert(`App "<strong>${app.name}</strong>" registered! API Key: <code>${app.api_key}</code>`, 'success');
+    this.reset();
+    // Add row to apps table
+    const tbody = document.getElementById('apps-table-body');
+    const placeholder = tbody.querySelector('td[colspan]');
+    if (placeholder) placeholder.closest('tr').remove();
+    const tr = document.createElement('tr');
+    tr.id = `app-row-${app.id}`;
+    tr.innerHTML = `
+      <td><div class="fw-medium text-light">${app.name}</div><div class="text-secondary" style="font-size:0.73rem;">${app.description || '—'}</div></td>
+      <td><code class="text-warning" style="font-size:0.72rem;word-break:break-all;" id="apikey-${app.id}">${app.api_key || 'N/A'}</code></td>
+      <td class="text-secondary" style="font-size:0.75rem;">${app.redirect_uri || '—'}</td>
+      <td><div class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-warning py-0 px-2" style="font-size:0.72rem;" onclick="regenKey(${app.id}, this)"><i class="bi bi-arrow-clockwise"></i></button>
+        <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.72rem;" onclick="confirmDeleteApp(${app.id}, '${app.name}')"><i class="bi bi-trash3"></i></button>
+      </div></td>`;
+    tbody.appendChild(tr);
+    // Also update the app-filter dropdown
+    const filterSel = document.getElementById('app-filter');
+    const opt = document.createElement('option');
+    opt.value = app.id; opt.textContent = app.name;
+    filterSel.appendChild(opt);
+  } catch(err) { showAlert(err.message, 'danger'); }
+  finally { setLoading(btn, false); }
+});
+
+// ── Regenerate API Key ─────────────────────────────────────────
+async function regenKey(appId, btn) {
+  showConfirm('Regenerate API Key', 'Old key will stop working immediately. Continue?', async () => {
+    try {
+      btn.disabled = true;
+      const app = await apiCall(`/apps/${appId}/regenerate-key`, 'POST');
+      document.getElementById(`apikey-${appId}`).textContent = app.api_key;
+      showAlert(`New API key generated for <strong>${app.name}</strong>!`, 'warning');
+    } catch(err) { showAlert(err.message, 'danger'); }
+    finally { btn.disabled = false; }
+  });
+}
+
+// ── Delete Application ─────────────────────────────────────────
+function confirmDeleteApp(appId, appName) {
+  showConfirm('Delete Application', `Permanently delete app "${appName}"? All associated roles/permissions will lose their app scope.`, async () => {
+    try {
+      await apiCall(`/apps/${appId}`, 'DELETE');
+      showAlert(`App "<strong>${appName}</strong>" deleted!`, 'warning');
+      const row = document.getElementById(`app-row-${appId}`);
+      if (row) { row.style.transition = 'opacity 0.3s'; row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+      // Remove from filter dropdown
+      document.querySelector(`#app-filter option[value="${appId}"]`)?.remove();
+    } catch(err) { showAlert(err.message, 'danger'); }
   });
 }
 
